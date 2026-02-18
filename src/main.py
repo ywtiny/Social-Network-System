@@ -119,9 +119,13 @@ class App:
             side=tk.LEFT, padx=5
         )
         ttk.Button(btn_frame, text="计算社交距离", command=self.do_dist).pack(
-            side=tk.LEFT, padx=5
+            side=tk.LEFT, padx=(5, 2)
         )
-        ttk.Button(btn_frame, text="智能推荐(Top-5)", command=self.do_rec).pack(
+        self.target_var = tk.StringVar()
+        self.combo_target = ttk.Combobox(btn_frame, textvariable=self.target_var, values=user_list, width=15)
+        self.combo_target.pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Button(btn_frame, text="智能推荐", command=self.do_rec).pack(
             side=tk.LEFT, padx=5
         )
         ttk.Button(btn_frame, text="清空结果", command=self.clear_output).pack(
@@ -322,7 +326,7 @@ class App:
             u_name = self.hash_table.get(uid)['name']
             u_ints_set = set(self.hash_table.get(uid)['interests'].split(";"))
             
-            self.out(f"=== 为 用户 {uid} ({u_name}) 生成的智能推荐 (Top-5) ===", clear=True)
+            self.out(f"=== 为 用户 {uid} ({u_name}) 生成的智能推荐 ===", clear=True)
             self.out("")
             
             idx = 1
@@ -344,8 +348,11 @@ class App:
     def do_dist(self):
         u1 = self.entry_u1.get()
         if self._validate_input(u1):
-            import tkinter.simpledialog as sd
-            u2 = sd.askstring("计算社交距离", "请输入目标用户ID:")
+            val = self.combo_target.get()
+            if not val:
+                messagebox.showwarning("提示", "请先在【计算社交距离】按钮右侧的下拉框中选择目标用户！")
+                return
+            u2 = val.split(" - ")[0]
             if u2 and self._validate_input(u2):
                 dist, path = algo.shortest_distance(self.graph, u1, u2)
                 self.out(f"=== 社交距离计算 ===", clear=True)
