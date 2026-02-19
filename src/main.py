@@ -169,7 +169,8 @@ class App:
         input_frame.pack(fill=tk.X)
 
         tk.Label(input_frame, text="当前用户ID:", bg='#f0f0f0').pack(side=tk.LEFT, padx=(0, 5))
-        self.entry_u1 = tk.Entry(input_frame, width=20)
+        self.entry_u1_var = tk.StringVar()
+        self.entry_u1 = ttk.Combobox(input_frame, textvariable=self.entry_u1_var, width=15)
         self.entry_u1.pack(side=tk.LEFT, padx=5)
         # 默认填入1作为实例
         self.entry_u1.insert(0, "1")
@@ -207,6 +208,8 @@ class App:
             cb.icursor(tk.END)
                 
         self.combo_user.bind("<KeyRelease>", on_combo_keyrelease)
+        self.entry_u1.bind("<KeyRelease>", on_combo_keyrelease)
+        self.entry_u1.bind("<<ComboboxSelected>>", self.on_combo_select)
 
         # 按钮矩阵区: 流式布局自动换行
         btn_frame_main = FlowFrame(top_frame, bg='#f0f0f0')
@@ -309,6 +312,7 @@ class App:
         self.combo_user['values'] = self.global_user_list
         try:
             self.combo_target['values'] = self.global_user_list
+            self.entry_u1['values'] = self.global_user_list
         except AttributeError:
             pass
 
@@ -350,7 +354,7 @@ class App:
 
     def on_combo_select(self, event):
         # 处理下拉框被选中联动同步到ID框
-        val = self.combo_user.get()
+        val = event.widget.get()
         if val:
             uid = val.split(" - ")[0]
             self.entry_u1.delete(0, tk.END)
@@ -396,7 +400,7 @@ class App:
             messagebox.showerror("持久化异常", str(e))
 
     def delete_user(self):
-        uid = self.entry_u1.get().strip()
+        uid = self.entry_u1.get().strip().split(" - ")[0]
         if not uid or not self.hash_table.get(uid):
             messagebox.showwarning("提示", "请先在上方输入框或下拉框指定一个有效的系统用户！")
             return
@@ -421,7 +425,7 @@ class App:
             messagebox.showinfo("成功", "用户彻底注销成功！")
 
     def show_edit_user_dialog(self):
-        uid = self.entry_u1.get().strip()
+        uid = self.entry_u1.get().strip().split(" - ")[0]
         if not uid or not self.hash_table.get(uid):
             messagebox.showwarning("提示", "请先在上方输入框或下拉框指定一个用户以修改其档案！")
             return
@@ -585,7 +589,7 @@ class App:
         ttk.Button(dialog, text="确认添加", command=confirm_add).grid(row=4, column=0, columnspan=2, pady=15)
 
     def do_1st(self):
-        uid = self.entry_u1.get()
+        uid = self.entry_u1.get().strip().split(" - ")[0]
         if self._validate_input(uid):
             res = algo.get_first_degree(self.graph, uid)
             u_name = self.hash_table.get(uid)['name']
@@ -606,7 +610,7 @@ class App:
             self.update_stats_panel(uid)
 
     def do_2nd(self):
-        uid = self.entry_u1.get()
+        uid = self.entry_u1.get().strip().split(" - ")[0]
         if self._validate_input(uid):
             res = algo.get_second_degree(self.graph, uid)
             u_name = self.hash_table.get(uid)['name']
@@ -629,7 +633,7 @@ class App:
             self.update_stats_panel(uid)
 
     def do_rec(self):
-        uid = self.entry_u1.get()
+        uid = self.entry_u1.get().strip().split(" - ")[0]
         if self._validate_input(uid):
             res = algo.recommend_top_k(self.graph, self.hash_table, uid, 5) # 匹配图片标注的 Top-5
             u_name = self.hash_table.get(uid)['name']
@@ -655,7 +659,7 @@ class App:
             self.update_stats_panel(uid)
 
     def do_dist(self):
-        u1 = self.entry_u1.get()
+        u1 = self.entry_u1.get().strip().split(" - ")[0]
         if self._validate_input(u1):
             val = self.combo_target.get()
             if not val:
