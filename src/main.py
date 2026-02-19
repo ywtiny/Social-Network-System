@@ -191,6 +191,7 @@ class App:
             if val == '':
                 cb['values'] = self.global_user_list
             else:
+                # 支持 ID 与 姓名的双轨检索
                 filtered = [u for u in self.global_user_list if val.lower() in u.lower()]
                 cb['values'] = filtered
                 
@@ -487,12 +488,22 @@ class App:
         
         tk.Label(dialog, text="选择直接好友 (可多选):", bg='#f0f0f0').grid(row=3, column=0, padx=10, pady=10, sticky=tk.NE)
         
-        # 好友多选列表框
+        # 好友多选列表框及搜索区
         friend_frame = tk.Frame(dialog, bg='#f0f0f0')
         friend_frame.grid(row=3, column=1, padx=10, pady=10, sticky=tk.W)
-        friend_scroll = tk.Scrollbar(friend_frame)
+        
+        # 搜索输入框
+        search_f = tk.Frame(friend_frame, bg='#f0f0f0')
+        search_f.pack(fill=tk.X, pady=(0, 5))
+        tk.Label(search_f, text="搜寻:", bg='#f0f0f0').pack(side=tk.LEFT)
+        entry_search_friend = tk.Entry(search_f, width=15)
+        entry_search_friend.pack(side=tk.LEFT, padx=(5, 0))
+        
+        list_f = tk.Frame(friend_frame, bg='#f0f0f0')
+        list_f.pack(fill=tk.BOTH, expand=True)
+        friend_scroll = tk.Scrollbar(list_f)
         friend_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        list_friends = tk.Listbox(friend_frame, selectmode=tk.MULTIPLE, yscrollcommand=friend_scroll.set, width=22, height=6)
+        list_friends = tk.Listbox(list_f, selectmode=tk.MULTIPLE, yscrollcommand=friend_scroll.set, width=22, height=6)
         list_friends.pack(side=tk.LEFT, fill=tk.BOTH)
         friend_scroll.config(command=list_friends.yview)
         
@@ -501,17 +512,32 @@ class App:
         for k in sorted(self.hash_table.get_all_keys(), key=lambda x: int(str(x).replace('\ufeff', ''))):
             uval = self.hash_table.get(k)
             display_str = f"{k} - {uval['name']}"
-            existing_users.append((k, display_str))
+            existing_users.append({'uid': k, 'display': display_str})
             list_friends.insert(tk.END, display_str)
+            
+        def filter_friends(event):
+            val = entry_search_friend.get().lower()
+            list_friends.delete(0, tk.END)
+            for u in existing_users:
+                if val in u['display'].lower():
+                    list_friends.insert(tk.END, u['display'])
+                    
+        entry_search_friend.bind("<KeyRelease>", filter_friends)
         
         def confirm_add():
             uid = entry_id.get().strip()
             name = entry_name.get().strip()
             interests = ip.get_interests_str()
             
-            # 获取用户在Listbox中选中的所有索引，并提取他们对应的真实UID
+            # 获取用户在Listbox中选中的所有显示文本，再反查真实UID
             selected_indices = list_friends.curselection()
-            friend_ids = [existing_users[i][0] for i in selected_indices]
+            selected_displays = [list_friends.get(i) for i in selected_indices]
+            friend_ids = []
+            for d in selected_displays:
+                for u in existing_users:
+                    if u['display'] == d:
+                        friend_ids.append(u['uid'])
+                        break
             
             if not name:
                 messagebox.showerror("错误", "姓名不能为空！", parent=dialog)
