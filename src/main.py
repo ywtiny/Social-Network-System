@@ -19,6 +19,88 @@ rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei']
 rcParams['axes.unicode_minus'] = False
 
 
+class FlowFrame(tk.Frame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self.bind("<Configure>", self._on_configure)
+
+    def _on_configure(self, event=None):
+        if not self.winfo_children():
+            return
+        width = self.winfo_width()
+        if width <= 1:
+            return
+            
+        x = y = 0
+        max_height = 0
+        for child in self.winfo_children():
+            reqwidth = child.winfo_reqwidth()
+            reqheight = child.winfo_reqheight()
+            
+            if x + reqwidth > width and x > 0:
+                x = 0
+                y += max_height + 5
+                max_height = 0
+                
+            child.place(x=x, y=y)
+            x += reqwidth + 5
+            max_height = max(max_height, reqheight)
+        self.configure(height=y + max_height)
+
+
+class InterestPanel(tk.Frame):
+    def __init__(self, master, initial_interests=""):
+        super().__init__(master, bg='#f0f0f0')
+        self.tags = []
+        
+        input_f = tk.Frame(self, bg='#f0f0f0')
+        input_f.pack(fill=tk.X)
+        self.entry = tk.Entry(input_f, width=15)
+        self.entry.pack(side=tk.LEFT)
+        self.entry.bind("<Return>", lambda e: self.add_tag())
+        
+        btn = ttk.Button(input_f, text="添加", width=4, command=self.add_tag)
+        btn.pack(side=tk.LEFT, padx=(5, 0))
+        
+        self.chips_text = tk.Text(self, bg='#f0f0f0', bd=0, height=3, width=25, wrap=tk.WORD, state=tk.DISABLED)
+        self.chips_text.pack(fill=tk.BOTH, expand=True, pady=(5,0))
+        
+        for t in initial_interests.split(';'):
+            if t.strip():
+                self.add_tag(t.strip())
+        
+    def add_tag(self, val=None):
+        if val is None:
+            val = self.entry.get().strip()
+        if val and val not in self.tags:
+            self.tags.append(val)
+            self.render_tags()
+        self.entry.delete(0, tk.END)
+        
+    def remove_tag(self, tag):
+        if tag in self.tags:
+            self.tags.remove(tag)
+            self.render_tags()
+            
+    def render_tags(self):
+        self.chips_text.config(state=tk.NORMAL)
+        self.chips_text.delete("1.0", tk.END)
+        
+        for tag in self.tags:
+            chip = tk.Frame(self.chips_text, bg='#e0f2fe', bd=1, relief=tk.SOLID)
+            tk.Label(chip, text=tag, bg='#e0f2fe', font=("Microsoft YaHei", 9)).pack(side=tk.LEFT, padx=(2, 0))
+            btn_x = tk.Label(chip, text=" ✕ ", fg="red", bg='#e0f2fe', font=("Microsoft YaHei", 9, "bold"), cursor="hand2")
+            btn_x.pack(side=tk.LEFT)
+            btn_x.bind("<Button-1>", lambda e, t=tag: self.remove_tag(t))
+            self.chips_text.window_create(tk.END, window=chip)
+            self.chips_text.insert(tk.END, " ")
+            
+        self.chips_text.config(state=tk.DISABLED)
+        
+    def get_interests_str(self):
+        return ";".join(self.tags)
+
+
 class App:
     def __init__(self, root):
         self.r = root
@@ -97,39 +179,42 @@ class App:
 
         tk.Label(input_frame, text="或选择用户:", bg='#f0f0f0').pack(side=tk.LEFT, padx=5)
         
-        # 组装下拉框数据
+        # 组装下拉框数据和搜索绑定
         self.user_var = tk.StringVar()
-        user_list = []
-        for uid in sorted(self.hash_table.get_all_keys(), key=lambda x: int(x)):
-            uinfo = self.hash_table.get(uid)
-            user_list.append(f"{uid} - {uinfo['name']}")
-            
-        self.combo_user = ttk.Combobox(input_frame, textvariable=self.user_var, values=user_list, width=25)
+        self.combo_user = ttk.Combobox(input_frame, textvariable=self.user_var, width=25)
         self.combo_user.pack(side=tk.LEFT, padx=5)
         self.combo_user.bind("<<ComboboxSelected>>", self.on_combo_select)
-
-        # 按钮矩阵区第一行
-        btn_frame_1 = tk.Frame(top_frame, bg='#f0f0f0')
-        btn_frame_1.pack(fill=tk.X, pady=(15, 5))
         
-        # 按钮矩阵区第二行
-        btn_frame_2 = tk.Frame(top_frame, bg='#f0f0f0')
-        btn_frame_2.pack(fill=tk.X, pady=(0, 15))
+        def on_combo_keyrelease(event):
+            cb = event.widget
+            val = cb.get()
+            if val == '':
+                cb['values'] = self.global_user_list
+            else:
+                filtered = [u for u in self.global_user_list if val.lower() in u.lower()]
+                cb['values'] = filtered
+                
+        self.combo_user.bind("<KeyRelease>", on_combo_keyrelease)
 
-        ttk.Button(btn_frame_1, text="查询直接好友", command=self.do_1st).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame_1, text="查找二度人脉", command=self.do_2nd).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame_1, text="计算社交距离", command=self.do_dist).pack(side=tk.LEFT, padx=(5, 2))
+        # 按钮矩阵区: 流式布局自动换行
+        btn_frame_main = FlowFrame(top_frame, bg='#f0f0f0')
+        btn_frame_main.pack(fill=tk.X, pady=15)
+
+        ttk.Button(btn_frame_main, text="查询直接好友", command=self.do_1st)
+        ttk.Button(btn_frame_main, text="查找二度人脉", command=self.do_2nd)
+        ttk.Button(btn_frame_main, text="计算社交距离", command=self.do_dist)
         
         self.target_var = tk.StringVar()
-        self.combo_target = ttk.Combobox(btn_frame_1, textvariable=self.target_var, values=user_list, width=15)
-        self.combo_target.pack(side=tk.LEFT, padx=(0, 5))
+        self.combo_target = ttk.Combobox(btn_frame_main, textvariable=self.target_var, width=15)
+        self.combo_target.bind("<KeyRelease>", on_combo_keyrelease)
         
-        ttk.Button(btn_frame_1, text="智能推荐", command=self.do_rec).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame_1, text="清空结果", command=self.clear_output).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame_main, text="智能推荐", command=self.do_rec)
+        ttk.Button(btn_frame_main, text="清空结果", command=self.clear_output)
+        ttk.Button(btn_frame_main, text="添加用户", command=self.show_add_user_dialog)
+        ttk.Button(btn_frame_main, text="修改信息", command=self.show_edit_user_dialog)
+        ttk.Button(btn_frame_main, text="删除用户", command=self.delete_user)
         
-        ttk.Button(btn_frame_2, text="添加用户", command=self.show_add_user_dialog).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame_2, text="修改信息", command=self.show_edit_user_dialog).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame_2, text="删除用户", command=self.delete_user).pack(side=tk.LEFT, padx=5)
+        self.refresh_user_combos()
 
         # ---------- 中间笔记本选项卡 ----------
         self.notebook = ttk.Notebook(self.r)
@@ -202,6 +287,18 @@ class App:
         # 初始化统计板及全量图谱绘制
         self.update_stats_panel("1")
         self.r.after(100, self.draw_graph) # 延迟绘制防止阻塞GUI初始化
+
+    def refresh_user_combos(self):
+        self.global_user_list = []
+        for k in sorted(self.hash_table.get_all_keys(), key=lambda x: int(str(x).replace('\ufeff', ''))):
+            uval = self.hash_table.get(k)
+            self.global_user_list.append(f"{k} - {uval['name']}")
+            
+        self.combo_user['values'] = self.global_user_list
+        try:
+            self.combo_target['values'] = self.global_user_list
+        except AttributeError:
+            pass
 
     def draw_graph(self):
         """利用 NetworkX 提取自定义邻接图结构并渲染"""
@@ -299,12 +396,7 @@ class App:
             self.graph.remove_node(uid)
             
             # 更新下拉框
-            user_list = []
-            for k in sorted(self.hash_table.get_all_keys(), key=lambda x: int(str(x).replace('\ufeff', ''))):
-                uval = self.hash_table.get(k)
-                user_list.append(f"{k} - {uval['name']}")
-            self.combo_user['values'] = user_list
-            self.combo_target['values'] = user_list
+            self.refresh_user_combos()
             
             # 刷新大屏和当前选中态
             self.lbl_overview_users.config(text=f"用户总数: {len(self.hash_table.get_all_keys())}")
@@ -335,14 +427,13 @@ class App:
         entry_name.insert(0, uinfo['name'])
         entry_name.grid(row=0, column=1, padx=10, pady=10)
         
-        tk.Label(dialog, text="兴趣标签 (分号分隔):", bg='#f0f0f0').grid(row=1, column=0, padx=10, pady=10, sticky=tk.E)
-        entry_interests = tk.Entry(dialog, width=20)
-        entry_interests.insert(0, uinfo['interests'])
-        entry_interests.grid(row=1, column=1, padx=10, pady=10)
+        tk.Label(dialog, text="兴趣标签 (纸片):", bg='#f0f0f0').grid(row=1, column=0, padx=10, pady=10, sticky=tk.NE)
+        ip = InterestPanel(dialog, initial_interests=uinfo['interests'])
+        ip.grid(row=1, column=1, padx=10, pady=10, sticky=tk.EW)
         
         def confirm_edit():
             name = entry_name.get().strip()
-            interests = entry_interests.get().strip()
+            interests = ip.get_interests_str()
             
             if not name:
                 messagebox.showerror("错误", "姓名不能为空！", parent=dialog)
@@ -351,12 +442,7 @@ class App:
             self.hash_table.put(uid, {"name": name, "interests": interests})
             
             # 更新下拉框文字
-            user_list = []
-            for k in sorted(self.hash_table.get_all_keys(), key=lambda x: int(str(x).replace('\ufeff', ''))):
-                uval = self.hash_table.get(k)
-                user_list.append(f"{k} - {uval['name']}")
-            self.combo_user['values'] = user_list
-            self.combo_target['values'] = user_list
+            self.refresh_user_combos()
             
             self.update_stats_panel(uid)
             self.out(f"[系统日志] 用户 {name} ({uid}) 档案元数据修改成功。")
@@ -395,9 +481,9 @@ class App:
         entry_name = tk.Entry(dialog, width=20)
         entry_name.grid(row=1, column=1, padx=10, pady=10)
         
-        tk.Label(dialog, text="兴趣标签 (分号分隔):", bg='#f0f0f0').grid(row=2, column=0, padx=10, pady=10, sticky=tk.E)
-        entry_interests = tk.Entry(dialog, width=20)
-        entry_interests.grid(row=2, column=1, padx=10, pady=10)
+        tk.Label(dialog, text="兴趣标签 (纸片):", bg='#f0f0f0').grid(row=2, column=0, padx=10, pady=10, sticky=tk.NE)
+        ip = InterestPanel(dialog)
+        ip.grid(row=2, column=1, padx=10, pady=10, sticky=tk.EW)
         
         tk.Label(dialog, text="选择直接好友 (可多选):", bg='#f0f0f0').grid(row=3, column=0, padx=10, pady=10, sticky=tk.NE)
         
@@ -421,7 +507,7 @@ class App:
         def confirm_add():
             uid = entry_id.get().strip()
             name = entry_name.get().strip()
-            interests = entry_interests.get().strip()
+            interests = ip.get_interests_str()
             
             # 获取用户在Listbox中选中的所有索引，并提取他们对应的真实UID
             selected_indices = list_friends.curselection()
@@ -445,12 +531,7 @@ class App:
                     self.graph.add_edge(uid, fid)
             
             # 更新下拉框列表
-            user_list = []
-            for k in sorted(self.hash_table.get_all_keys(), key=lambda x: int(str(x).replace('\ufeff', ''))):
-                uval = self.hash_table.get(k)
-                user_list.append(f"{k} - {uval['name']}")
-            self.combo_user['values'] = user_list
-            self.combo_target['values'] = user_list
+            self.refresh_user_combos()
             
             # 更新统计数字概览
             self.lbl_overview_users.config(text=f"用户总数: {len(self.hash_table.get_all_keys())}")
