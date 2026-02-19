@@ -187,6 +187,11 @@ class App:
         
         def on_combo_keyrelease(event):
             cb = event.widget
+            
+            # 忽略导航键与控制键，防止破坏选中态或光标
+            if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Return', 'Escape', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
+                return
+                
             val = cb.get()
             if val == '':
                 cb['values'] = self.global_user_list
@@ -194,6 +199,12 @@ class App:
                 # 支持 ID 与 姓名的双轨检索
                 filtered = [u for u in self.global_user_list if val.lower() in u.lower()]
                 cb['values'] = filtered
+            
+            # 强制展出下拉列表 (Windows 下使用 event_generate('<Down>') 最为稳妥，且由 ttk 内部接管)
+            # 通过 event_generate 触发，需要把焦点暂稳
+            cb.event_generate('<Down>')
+            # 展开后可能引起全选或者光标位移，强行将输入光标移至末尾，保持连续输入的顺畅感
+            cb.icursor(tk.END)
                 
         self.combo_user.bind("<KeyRelease>", on_combo_keyrelease)
 
