@@ -201,11 +201,11 @@ class App:
                 filtered = [u for u in self.global_user_list if val.lower() in u.lower()]
                 cb['values'] = filtered
             
-            # 强制展出下拉列表 (Windows 下使用 event_generate('<Down>') 最为稳妥，且由 ttk 内部接管)
-            # 通过 event_generate 触发，需要把焦点暂稳
-            cb.event_generate('<Down>')
-            # 展开后可能引起全选或者光标位移，强行将输入光标移至末尾，保持连续输入的顺畅感
-            cb.icursor(tk.END)
+            # 安全展开下拉列表（直接调用 Tcl 底层命令，不使用容易造成拦截或自动选中的方向按键）
+            try:
+                cb.tk.call('ttk::combobox::Post', cb)
+            except tk.TclError:
+                pass
                 
         self.combo_user.bind("<KeyRelease>", on_combo_keyrelease)
         self.entry_u1.bind("<KeyRelease>", on_combo_keyrelease)
@@ -355,10 +355,19 @@ class App:
     def on_combo_select(self, event):
         # 处理下拉框被选中联动同步到ID框
         val = event.widget.get()
-        if val:
+        if val and " - " in val:
             uid = val.split(" - ")[0]
-            self.entry_u1.delete(0, tk.END)
-            self.entry_u1.insert(0, uid)
+            
+            # 如果触发者是主ID框自己，只有当选中的值和当前不一样才刷新，避免重复光标跳动
+            if event.widget == self.entry_u1:
+                # 即使是自己，为了确保显示纯数字，强制覆写并把光标推到底
+                self.entry_u1.delete(0, tk.END)
+                self.entry_u1.insert(0, uid)
+                self.entry_u1.icursor(tk.END)
+            else:
+                self.entry_u1.delete(0, tk.END)
+                self.entry_u1.insert(0, uid)
+                
             self.update_stats_panel(uid)
 
     def update_stats_panel(self, uid):
