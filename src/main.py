@@ -194,6 +194,14 @@ class App:
                 return
                 
             val = cb.get()
+            
+            # 防抖动与输入法保护：
+            # 在输入法敲击拼音期间，底层 .get() 并不会变化，只有最终文字上屏才会改变。
+            # 如果不加以拦截直接重置 values 或 Post，会强行打断输入法的悬浮窗导致无法打字。
+            if getattr(cb, '_last_val', None) == val:
+                return
+            cb._last_val = val
+
             if val == '':
                 cb['values'] = self.global_user_list
             else:
