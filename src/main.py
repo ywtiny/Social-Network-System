@@ -131,6 +131,9 @@ class App:
         ttk.Button(btn_frame, text="清空结果", command=self.clear_output).pack(
             side=tk.LEFT, padx=5
         )
+        ttk.Button(btn_frame, text="添加用户", command=self.show_add_user_dialog).pack(
+            side=tk.LEFT, padx=5
+        )
 
         # ---------- 中间笔记本选项卡 ----------
         self.notebook = ttk.Notebook(self.r)
@@ -161,7 +164,8 @@ class App:
         # 网络概览框
         overview_elf = tk.LabelFrame(stats_padding, text="网络概览", font=("Microsoft YaHei", 10, "bold"), padx=10, pady=10)
         overview_elf.pack(fill=tk.X, pady=(0, 20))
-        tk.Label(overview_elf, text=f"用户总数: {len(self.hash_table.get_all_keys())}", font=("Microsoft YaHei", 10)).pack(anchor=tk.W, pady=2)
+        self.lbl_overview_users = tk.Label(overview_elf, text=f"用户总数: {len(self.hash_table.get_all_keys())}", font=("Microsoft YaHei", 10))
+        self.lbl_overview_users.pack(anchor=tk.W, pady=2)
         tk.Label(overview_elf, text="关系总数: (自动聚合)", font=("Microsoft YaHei", 10)).pack(anchor=tk.W, pady=2)
         
         # 当前用户信息框
@@ -274,6 +278,105 @@ class App:
     def clear_output(self):
         self.txt.delete("1.0", tk.END)
         self.status_var.set("已清空结果")
+
+    def show_add_user_dialog(self):
+        dialog = tk.Toplevel(self.r)
+        dialog.title("添加新用户")
+        dialog.geometry("400x420")
+        dialog.configure(bg='#f0f0f0')
+        dialog.grab_set() # 模态窗口
+        
+        # 自动计算下一个有效 ID
+        all_keys = self.hash_table.get_all_keys()
+        max_id = 0
+        for k in all_keys:
+            try:
+                num = int(str(k).replace('\ufeff', ''))
+                if num > max_id:
+                    max_id = num
+            except ValueError:
+                pass
+        next_id = str(max_id + 1)
+        
+        tk.Label(dialog, text="用户ID (自动分配):", bg='#f0f0f0').grid(row=0, column=0, padx=10, pady=10, sticky=tk.E)
+        entry_id = tk.Entry(dialog, width=20, state='normal')
+        entry_id.insert(0, next_id)
+        entry_id.config(state='readonly')
+        entry_id.grid(row=0, column=1, padx=10, pady=10)
+        
+        tk.Label(dialog, text="姓名 (必填):", bg='#f0f0f0').grid(row=1, column=0, padx=10, pady=10, sticky=tk.E)
+        entry_name = tk.Entry(dialog, width=20)
+        entry_name.grid(row=1, column=1, padx=10, pady=10)
+        
+        tk.Label(dialog, text="兴趣标签 (分号分隔):", bg='#f0f0f0').grid(row=2, column=0, padx=10, pady=10, sticky=tk.E)
+        entry_interests = tk.Entry(dialog, width=20)
+        entry_interests.grid(row=2, column=1, padx=10, pady=10)
+        
+        tk.Label(dialog, text="选择直接好友 (可多选):", bg='#f0f0f0').grid(row=3, column=0, padx=10, pady=10, sticky=tk.NE)
+        
+        # 好友多选列表框
+        friend_frame = tk.Frame(dialog, bg='#f0f0f0')
+        friend_frame.grid(row=3, column=1, padx=10, pady=10, sticky=tk.W)
+        friend_scroll = tk.Scrollbar(friend_frame)
+        friend_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        list_friends = tk.Listbox(friend_frame, selectmode=tk.MULTIPLE, yscrollcommand=friend_scroll.set, width=22, height=6)
+        list_friends.pack(side=tk.LEFT, fill=tk.BOTH)
+        friend_scroll.config(command=list_friends.yview)
+        
+        # 填充现有用户列表
+        existing_users = []
+        for k in sorted(self.hash_table.get_all_keys(), key=lambda x: int(str(x).replace('\ufeff', ''))):
+            uval = self.hash_table.get(k)
+            display_str = f"{k} - {uval['name']}"
+            existing_users.append((k, display_str))
+            list_friends.insert(tk.END, display_str)
+        
+        def confirm_add():
+            uid = entry_id.get().strip()
+            name = entry_name.get().strip()
+            interests = entry_interests.get().strip()
+            
+            # 获取用户在Listbox中选中的所有索引，并提取他们对应的真实UID
+            selected_indices = list_friends.curselection()
+            friend_ids = [existing_users[i][0] for i in selected_indices]
+            
+            if not name:
+                messagebox.showerror("错误", "姓名不能为空！", parent=dialog)
+                return
+                
+            if self.hash_table.get(uid):
+                messagebox.showerror("错误", f"用户ID '{uid}' 已存在！", parent=dialog)
+                return
+                
+            # 存入哈希表
+            self.hash_table.put(uid, {"name": name, "interests": interests})
+            
+            # 由于我们的邻接表添加边时会自动隐式添加节点，但为了规范，手动查一下
+            # 读取并关联好友
+            for fid in friend_ids:
+                if self.hash_table.get(fid):
+                    self.graph.add_edge(uid, fid)
+            
+            # 更新下拉框列表
+            user_list = []
+            for k in sorted(self.hash_table.get_all_keys(), key=lambda x: int(str(x).replace('\ufeff', ''))):
+                uval = self.hash_table.get(k)
+                user_list.append(f"{k} - {uval['name']}")
+            self.combo_user['values'] = user_list
+            self.combo_target['values'] = user_list
+            
+            # 更新统计数字概览
+            self.lbl_overview_users.config(text=f"用户总数: {len(self.hash_table.get_all_keys())}")
+            self.update_stats_panel(uid)
+            
+            # 手动触发关联图谱重渲染
+            self.draw_graph()
+            
+            messagebox.showinfo("成功", f"用户 {name} ({uid}) 添加成功！", parent=dialog)
+            self.out(f"[系统日志] 新用户 {name}({uid}) 已接入系统网络。", clear=False)
+            dialog.destroy()
+            
+        ttk.Button(dialog, text="确认添加", command=confirm_add).grid(row=4, column=0, columnspan=2, pady=15)
 
     def do_1st(self):
         uid = self.entry_u1.get()
