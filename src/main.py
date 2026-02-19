@@ -62,8 +62,8 @@ class InterestPanel(tk.Frame):
         btn = ttk.Button(input_f, text="添加", width=4, command=self.add_tag)
         btn.pack(side=tk.LEFT, padx=(5, 0))
         
-        self.chips_text = tk.Text(self, bg='#f0f0f0', bd=0, height=3, width=25, wrap=tk.WORD, state=tk.DISABLED)
-        self.chips_text.pack(fill=tk.BOTH, expand=True, pady=(5,0))
+        self.chips_frame = FlowFrame(self, bg='#f0f0f0')
+        self.chips_frame.pack(fill=tk.BOTH, expand=True, pady=(5,0))
         
         for t in initial_interests.split(';'):
             if t.strip():
@@ -83,19 +83,19 @@ class InterestPanel(tk.Frame):
             self.render_tags()
             
     def render_tags(self):
-        self.chips_text.config(state=tk.NORMAL)
-        self.chips_text.delete("1.0", tk.END)
+        for widget in self.chips_frame.winfo_children():
+            widget.destroy()
         
         for tag in self.tags:
-            chip = tk.Frame(self.chips_text, bg='#e0f2fe', bd=1, relief=tk.SOLID)
+            chip = tk.Frame(self.chips_frame, bg='#e0f2fe', bd=1, relief=tk.SOLID)
             tk.Label(chip, text=tag, bg='#e0f2fe', font=("Microsoft YaHei", 9)).pack(side=tk.LEFT, padx=(2, 0))
             btn_x = tk.Label(chip, text=" ✕ ", fg="red", bg='#e0f2fe', font=("Microsoft YaHei", 9, "bold"), cursor="hand2")
             btn_x.pack(side=tk.LEFT)
             btn_x.bind("<Button-1>", lambda e, t=tag: self.remove_tag(t))
-            self.chips_text.window_create(tk.END, window=chip)
-            self.chips_text.insert(tk.END, " ")
             
-        self.chips_text.config(state=tk.DISABLED)
+        # 强制更新并重新触发布局
+        self.chips_frame.update_idletasks()
+        self.chips_frame._on_configure()
         
     def get_interests_str(self):
         return ";".join(self.tags)
@@ -418,7 +418,7 @@ class App:
         
         dialog = tk.Toplevel(self.r)
         dialog.title(f"修改档案 - {uid}")
-        dialog.geometry("350x200")
+        dialog.minsize(350, 200)
         dialog.configure(bg='#f0f0f0')
         dialog.grab_set()
         
@@ -455,7 +455,7 @@ class App:
     def show_add_user_dialog(self):
         dialog = tk.Toplevel(self.r)
         dialog.title("添加新用户")
-        dialog.geometry("400x420")
+        dialog.minsize(400, 420)
         dialog.configure(bg='#f0f0f0')
         dialog.grab_set() # 模态窗口
         
