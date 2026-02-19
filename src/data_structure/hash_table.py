@@ -77,6 +77,24 @@ class HashTable:
             curr = curr.next
         return None
 
+    def remove(self, key):
+        """
+        从哈希表中移除指定的键值对
+        """
+        idx = self._hash(key)
+        curr = self.table[idx]
+        prev = None
+        while curr:
+            if str(curr.key) == str(key):
+                if prev:
+                    prev.next = curr.next
+                else:
+                    self.table[idx] = curr.next
+                return True
+            prev = curr
+            curr = curr.next
+        return False
+
     def get_all_keys(self):
         """
         获取缓存在哈希表中的全量独立 Key 集合

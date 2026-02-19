@@ -35,3 +35,33 @@ def load_all_data(user_path, friend_path, hash_table, graph):
                     graph.add_edge(parts[0], parts[1])
     except Exception as e:
         raise ValueError("文件物理拉取异常崩溃: " + str(e))
+
+def save_all_data(user_path, friend_path, hash_table, graph):
+    """
+    将内存中的用户哈希表与关系图序列化回写至物理文件中实现持久化
+    """
+    try:
+        # 重写用户档案 (带表头)
+        with open(user_path, "w", encoding="utf-8") as f:
+            f.write("用户ID,姓名,兴趣标签\n")
+            # 排序保障文本的顺序一致性
+            sorted_keys = sorted(hash_table.get_all_keys(), key=lambda x: int(str(x).replace('\ufeff', '')))
+            for uid in sorted_keys:
+                uinfo = hash_table.get(uid)
+                f.write(f"{uid},{uinfo['name']},{uinfo['interests']}\n")
+                
+        # 重写好友无向图关系 (去重写入)
+        written_edges = set()
+        with open(friend_path, "w", encoding="utf-8") as f:
+            for u in sorted(graph.get_all_nodes(), key=lambda x: int(str(x).replace('\ufeff', ''))):
+                for v in sorted(graph.get_neighbors(u), key=lambda x: int(str(x).replace('\ufeff', ''))):
+                    # 为了无向图不写两遍 1,2 和 2,1，统一按从小到大排序形成 tuple 签名
+                    u_int, v_int = int(str(u).replace('\ufeff', '')), int(str(v).replace('\ufeff', ''))
+                    edge = (min(u_int, v_int), max(u_int, v_int))
+                    if edge not in written_edges:
+                        f.write(f"{u},{v}\n")
+                        written_edges.add(edge)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise ValueError("文件物理写入持久化异常崩溃: " + str(e))

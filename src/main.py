@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from data_structure.hash_table import HashTable
 from data_structure.adjacency_list import Graph
-from utils.data_reader import load_all_data
+from utils.data_reader import load_all_data, save_all_data
 import algorithm.algorithms as algo
 
 import networkx as nx
@@ -108,32 +108,28 @@ class App:
         self.combo_user.pack(side=tk.LEFT, padx=5)
         self.combo_user.bind("<<ComboboxSelected>>", self.on_combo_select)
 
-        # 按钮矩阵区
-        btn_frame = tk.Frame(top_frame, bg='#f0f0f0')
-        btn_frame.pack(fill=tk.X, pady=15)
+        # 按钮矩阵区第一行
+        btn_frame_1 = tk.Frame(top_frame, bg='#f0f0f0')
+        btn_frame_1.pack(fill=tk.X, pady=(15, 5))
+        
+        # 按钮矩阵区第二行
+        btn_frame_2 = tk.Frame(top_frame, bg='#f0f0f0')
+        btn_frame_2.pack(fill=tk.X, pady=(0, 15))
 
-        ttk.Button(btn_frame, text="查询直接好友", command=self.do_1st).pack(
-            side=tk.LEFT, padx=5
-        )
-        ttk.Button(btn_frame, text="查找二度人脉", command=self.do_2nd).pack(
-            side=tk.LEFT, padx=5
-        )
-        ttk.Button(btn_frame, text="计算社交距离", command=self.do_dist).pack(
-            side=tk.LEFT, padx=(5, 2)
-        )
+        ttk.Button(btn_frame_1, text="查询直接好友", command=self.do_1st).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame_1, text="查找二度人脉", command=self.do_2nd).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame_1, text="计算社交距离", command=self.do_dist).pack(side=tk.LEFT, padx=(5, 2))
+        
         self.target_var = tk.StringVar()
-        self.combo_target = ttk.Combobox(btn_frame, textvariable=self.target_var, values=user_list, width=15)
+        self.combo_target = ttk.Combobox(btn_frame_1, textvariable=self.target_var, values=user_list, width=15)
         self.combo_target.pack(side=tk.LEFT, padx=(0, 5))
         
-        ttk.Button(btn_frame, text="智能推荐", command=self.do_rec).pack(
-            side=tk.LEFT, padx=5
-        )
-        ttk.Button(btn_frame, text="清空结果", command=self.clear_output).pack(
-            side=tk.LEFT, padx=5
-        )
-        ttk.Button(btn_frame, text="添加用户", command=self.show_add_user_dialog).pack(
-            side=tk.LEFT, padx=5
-        )
+        ttk.Button(btn_frame_1, text="智能推荐", command=self.do_rec).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame_1, text="清空结果", command=self.clear_output).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(btn_frame_2, text="添加用户", command=self.show_add_user_dialog).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame_2, text="修改信息", command=self.show_edit_user_dialog).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame_2, text="删除用户", command=self.delete_user).pack(side=tk.LEFT, padx=5)
 
         # ---------- 中间笔记本选项卡 ----------
         self.notebook = ttk.Notebook(self.r)
@@ -279,6 +275,97 @@ class App:
         self.txt.delete("1.0", tk.END)
         self.status_var.set("已清空结果")
 
+    def save_to_disk(self):
+        try:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            u_path = os.path.join(base_dir, "data", "user_sample.csv")
+            f_path = os.path.join(base_dir, "data", "friend_sample.txt")
+            save_all_data(u_path, f_path, self.hash_table, self.graph)
+            self.out("[系统日志] 持久化存储成功，数据已安全写入磁盘。", clear=False)
+        except Exception as e:
+            self.out(f"[系统错误] 持久化存储失败: {e}", clear=False)
+            messagebox.showerror("持久化异常", str(e))
+
+    def delete_user(self):
+        uid = self.entry_u1.get().strip()
+        if not uid or not self.hash_table.get(uid):
+            messagebox.showwarning("提示", "请先在上方输入框或下拉框指定一个有效的系统用户！")
+            return
+            
+        uinfo = self.hash_table.get(uid)
+        ans = messagebox.askyesno("危险操作", f"确定要永久注销用户 {uinfo['name']} ({uid}) 单节点及有关的拓扑连线吗？此操作无法撤销。")
+        if ans:
+            self.hash_table.remove(uid)
+            self.graph.remove_node(uid)
+            
+            # 更新下拉框
+            user_list = []
+            for k in sorted(self.hash_table.get_all_keys(), key=lambda x: int(str(x).replace('\ufeff', ''))):
+                uval = self.hash_table.get(k)
+                user_list.append(f"{k} - {uval['name']}")
+            self.combo_user['values'] = user_list
+            self.combo_target['values'] = user_list
+            
+            # 刷新大屏和当前选中态
+            self.lbl_overview_users.config(text=f"用户总数: {len(self.hash_table.get_all_keys())}")
+            self.entry_u1.delete(0, tk.END)
+            self.update_stats_panel("") # 清空当前档案面板
+            
+            self.draw_graph()
+            self.out(f"[系统日志] 用户 {uinfo['name']}({uid}) 的档案及社交关系已被注销清理。", clear=True)
+            self.save_to_disk()
+            messagebox.showinfo("成功", "用户彻底注销成功！")
+
+    def show_edit_user_dialog(self):
+        uid = self.entry_u1.get().strip()
+        if not uid or not self.hash_table.get(uid):
+            messagebox.showwarning("提示", "请先在上方输入框或下拉框指定一个用户以修改其档案！")
+            return
+            
+        uinfo = self.hash_table.get(uid)
+        
+        dialog = tk.Toplevel(self.r)
+        dialog.title(f"修改档案 - {uid}")
+        dialog.geometry("350x200")
+        dialog.configure(bg='#f0f0f0')
+        dialog.grab_set()
+        
+        tk.Label(dialog, text="姓名 (必填):", bg='#f0f0f0').grid(row=0, column=0, padx=10, pady=10, sticky=tk.E)
+        entry_name = tk.Entry(dialog, width=20)
+        entry_name.insert(0, uinfo['name'])
+        entry_name.grid(row=0, column=1, padx=10, pady=10)
+        
+        tk.Label(dialog, text="兴趣标签 (分号分隔):", bg='#f0f0f0').grid(row=1, column=0, padx=10, pady=10, sticky=tk.E)
+        entry_interests = tk.Entry(dialog, width=20)
+        entry_interests.insert(0, uinfo['interests'])
+        entry_interests.grid(row=1, column=1, padx=10, pady=10)
+        
+        def confirm_edit():
+            name = entry_name.get().strip()
+            interests = entry_interests.get().strip()
+            
+            if not name:
+                messagebox.showerror("错误", "姓名不能为空！", parent=dialog)
+                return
+                
+            self.hash_table.put(uid, {"name": name, "interests": interests})
+            
+            # 更新下拉框文字
+            user_list = []
+            for k in sorted(self.hash_table.get_all_keys(), key=lambda x: int(str(x).replace('\ufeff', ''))):
+                uval = self.hash_table.get(k)
+                user_list.append(f"{k} - {uval['name']}")
+            self.combo_user['values'] = user_list
+            self.combo_target['values'] = user_list
+            
+            self.update_stats_panel(uid)
+            self.out(f"[系统日志] 用户 {name} ({uid}) 档案元数据修改成功。")
+            self.save_to_disk()
+            messagebox.showinfo("成功", "信息保存成功！", parent=dialog)
+            dialog.destroy()
+            
+        ttk.Button(dialog, text="保存修改", command=confirm_edit).grid(row=2, column=0, columnspan=2, pady=15)
+
     def show_add_user_dialog(self):
         dialog = tk.Toplevel(self.r)
         dialog.title("添加新用户")
@@ -372,8 +459,9 @@ class App:
             # 手动触发关联图谱重渲染
             self.draw_graph()
             
-            messagebox.showinfo("成功", f"用户 {name} ({uid}) 添加成功！", parent=dialog)
             self.out(f"[系统日志] 新用户 {name}({uid}) 已接入系统网络。", clear=False)
+            self.save_to_disk()
+            messagebox.showinfo("成功", f"用户 {name} ({uid}) 添加成功！", parent=dialog)
             dialog.destroy()
             
         ttk.Button(dialog, text="确认添加", command=confirm_add).grid(row=4, column=0, columnspan=2, pady=15)

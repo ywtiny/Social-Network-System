@@ -24,6 +24,18 @@ class Graph:
         if node_id not in self.adj_list:
             self.adj_list[node_id] = []
 
+    def remove_node(self, node_id):
+        """
+        从图中移除一个节点，并清理所有与之相连的边
+        """
+        if node_id in self.adj_list:
+            # 先从其所有邻居的邻接表中移除该节点
+            for neighbor in self.adj_list[node_id]:
+                if neighbor in self.adj_list and node_id in self.adj_list[neighbor]:
+                    self.adj_list[neighbor].remove(node_id)
+            # 最后删除该节点本身
+            del self.adj_list[node_id]
+
     def add_edge(self, u, v):
         """
         添加无向边 (若节点不存在则自动新建)
