@@ -180,21 +180,11 @@ class App:
             # 忽略导航键与常规控制键
             if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Return', 'Escape', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
                 return
-                
-            # 当用户按退格键时，关闭强制下拉框以释放输入法锁定，让原生的光标回退逻辑自由运作
-            if event.keysym == 'BackSpace':
-                try:
-                    cb.tk.call('ttk::combobox::Unpost', cb)
-                except tk.TclError:
-                    pass
-                cb._last_val = cb.get()  # 重置防抖锚点
-                return
-                
+            
             val = cb.get()
             
             # 防抖动与输入法保护：
             # 在输入法敲击拼音期间，底层 .get() 并不会变化，只有最终文字上屏才会改变。
-            # 如果不加以拦截直接重置 values 或 Post，会强行打断输入法的悬浮窗导致无法打字。
             if getattr(cb, '_last_val', None) == val:
                 return
             cb._last_val = val
@@ -202,19 +192,8 @@ class App:
             if val == '':
                 cb['values'] = self.global_user_list
             else:
-                # 支持 ID 与 姓名的双轨检索
                 filtered = [u for u in self.global_user_list if val.lower() in u.lower()]
                 cb['values'] = filtered
-            
-            # 安全展开下拉列表
-            try:
-                cb.tk.call('ttk::combobox::Post', cb)
-                # !! 核心修复 !!：Windows下弹出 Tcl Menu 常常会偷走主窗口焦点，导致输入法断流或按键丢失。
-                # 必须强行把键盘焦点抓取回当前的 Combobox 框，并保持输入光标。
-                cb.focus_set()
-                cb.icursor(tk.END)
-            except tk.TclError:
-                pass
                 
                 
         self.entry_u1.bind("<KeyRelease>", on_combo_keyrelease)
@@ -467,8 +446,10 @@ class App:
         input_f.pack(fill=tk.X, padx=10, pady=5)
         
         tk.Label(input_f, text="目标用户:", bg='#f0f0f0').pack(side=tk.LEFT)
-        combo_f = AutocompleteEntry(input_f, width=20, candidates=self.global_user_list)
+        friend_var = tk.StringVar()
+        combo_f = ttk.Combobox(input_f, textvariable=friend_var, width=20, values=self.global_user_list)
         combo_f.pack(side=tk.LEFT, padx=5)
+        combo_f.bind('<KeyRelease>', on_combo_keyrelease)
         
         # 先把组件实例化！否则后面的闭包函数会报 NameError 导致界面渲染断裂！
         lb_frame = tk.Frame(frame_friends, bg='#f0f0f0')
@@ -502,8 +483,7 @@ class App:
                 return
             
             # 双向添加边保证无向图的完整互踩
-            self.graph.add_edge(uid, t_uid, 1)
-            self.graph.add_edge(t_uid, uid, 1)
+            self.graph.add_edge(uid, t_uid)
             refresh_friend_list()
             combo_f.delete(0, tk.END)
             self.out(f"[好友管理] 为 {uid} 节点与 {t_uid} 节点已互加好友关系边。")
