@@ -177,8 +177,17 @@ class App:
         def on_combo_keyrelease(event):
             cb = event.widget
             
-            # 忽略导航键与控制键，防止破坏选中态或光标
+            # 忽略导航键与常规控制键
             if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Return', 'Escape', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
+                return
+                
+            # 当用户按退格键时，关闭强制下拉框以释放输入法锁定，让原生的光标回退逻辑自由运作
+            if event.keysym == 'BackSpace':
+                try:
+                    cb.tk.call('ttk::combobox::Unpost', cb)
+                except tk.TclError:
+                    pass
+                cb._last_val = cb.get()  # 重置防抖锚点
                 return
                 
             val = cb.get()
@@ -197,9 +206,13 @@ class App:
                 filtered = [u for u in self.global_user_list if val.lower() in u.lower()]
                 cb['values'] = filtered
             
-            # 安全展开下拉列表（直接调用 Tcl 底层命令，不使用容易造成拦截或自动选中的方向按键）
+            # 安全展开下拉列表
             try:
                 cb.tk.call('ttk::combobox::Post', cb)
+                # !! 核心修复 !!：Windows下弹出 Tcl Menu 常常会偷走主窗口焦点，导致输入法断流或按键丢失。
+                # 必须强行把键盘焦点抓取回当前的 Combobox 框，并保持输入光标。
+                cb.focus_set()
+                cb.icursor(tk.END)
             except tk.TclError:
                 pass
                 
