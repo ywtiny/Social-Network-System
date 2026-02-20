@@ -187,8 +187,7 @@ class App:
                     cb.tk.call('ttk::combobox::Unpost', cb)
                 except tk.TclError:
                     pass
-                cb._last_val = cb.get()  # 重置防抖锚点
-                return
+                cb._last_val = cb.get()  # 重置防抖锚点，但我们不 return，继续往下走过滤流程！
                 
             val = cb.get()
             
@@ -206,15 +205,16 @@ class App:
                 filtered = [u for u in self.global_user_list if val.lower() in u.lower()]
                 cb['values'] = filtered
             
-            # 安全展开下拉列表
-            try:
-                cb.tk.call('ttk::combobox::Post', cb)
-                # !! 核心修复 !!：Windows下弹出 Tcl Menu 常常会偷走主窗口焦点，导致输入法断流或按键丢失。
-                # 必须强行把键盘焦点抓取回当前的 Combobox 框，并保持输入光标。
-                cb.focus_set()
-                cb.icursor(tk.END)
-            except tk.TclError:
-                pass
+            # 安全展开下拉列表（利用延时异步执行，防止Windows事件列队吞掉焦点设置）
+            def delayed_post_and_focus():
+                try:
+                    cb.tk.call('ttk::combobox::Post', cb)
+                    cb.focus_set()
+                    cb.icursor(tk.END)
+                except tk.TclError:
+                    pass
+            
+            cb.after(10, delayed_post_and_focus)
                 
                 
         self.entry_u1.bind("<KeyRelease>", on_combo_keyrelease)
@@ -365,8 +365,6 @@ class App:
         val = event.widget.get()
         if val and " - " in val:
             uid = val.split(" - ")[0]
-            # 焦点转移防止继续强占输入法
-            self.r.focus_set()
             self.update_stats_panel(uid)
 
     def update_stats_panel(self, uid):
