@@ -470,6 +470,16 @@ class App:
         combo_f = AutocompleteEntry(input_f, width=20, candidates=self.global_user_list)
         combo_f.pack(side=tk.LEFT, padx=5)
         
+        # 先把组件实例化！否则后面的闭包函数会报 NameError 导致界面渲染断裂！
+        lb_frame = tk.Frame(frame_friends, bg='#f0f0f0')
+        lb_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        listbox_f = tk.Listbox(lb_frame, font=("Microsoft YaHei", 9), selectmode=tk.SINGLE, bd=1, relief=tk.SOLID)
+        listbox_f.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll_f = ttk.Scrollbar(lb_frame, command=listbox_f.yview)
+        scroll_f.pack(side=tk.RIGHT, fill=tk.Y)
+        listbox_f.config(yscrollcommand=scroll_f.set)
+        
         def refresh_friend_list():
             listbox_f.delete(0, tk.END)
             neighbors = self.graph.get_neighbors(uid)
@@ -523,15 +533,6 @@ class App:
         
         btn_add_f = ttk.Button(input_f, text="增加此人为好友", command=add_friend_link)
         btn_add_f.pack(side=tk.LEFT, padx=(5,0))
-        
-        lb_frame = tk.Frame(frame_friends, bg='#f0f0f0')
-        lb_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        
-        listbox_f = tk.Listbox(lb_frame, font=("Microsoft YaHei", 9), selectmode=tk.SINGLE, bd=1, relief=tk.SOLID)
-        listbox_f.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll_f = ttk.Scrollbar(lb_frame, command=listbox_f.yview)
-        scroll_f.pack(side=tk.RIGHT, fill=tk.Y)
-        listbox_f.config(yscrollcommand=scroll_f.set)
         
         btn_rm_f = ttk.Button(frame_friends, text="解除选中好友关系", command=remove_friend_link)
         btn_rm_f.pack(pady=5)
