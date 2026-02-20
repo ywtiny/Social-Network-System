@@ -48,6 +48,123 @@ class FlowFrame(tk.Frame):
         self.configure(height=y + max_height)
 
 
+class AutocompleteEntry(tk.Entry):
+    """自研的自动补全输入框：使用独立浮窗+列表，绝不抢夺键盘焦点"""
+    def __init__(self, master, candidates=None, on_select=None, width=25, **kwargs):
+        super().__init__(master, width=width, **kwargs)
+        self.candidates = candidates or []
+        self.on_select_callback = on_select
+        self._popup = None
+        self._listbox = None
+
+        self.bind('<KeyRelease>', self._on_keyrelease)
+        self.bind('<FocusOut>', self._schedule_hide)
+        self.bind('<Escape>', lambda e: self._hide_popup())
+        self.bind('<Down>', self._focus_listbox)
+        self.bind('<Return>', self._confirm_selection)
+
+    def set_candidates(self, candidates):
+        self.candidates = candidates
+
+    def _on_keyrelease(self, event):
+        if event.keysym in ('Up', 'Down', 'Return', 'Escape', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
+            return
+        self._update_popup()
+
+    def _update_popup(self):
+        val = self.get()
+        if val == '':
+            filtered = self.candidates[:]
+        else:
+            filtered = [c for c in self.candidates if val.lower() in c.lower()]
+
+        if not filtered:
+            self._hide_popup()
+            return
+
+        if self._popup is None or not self._popup.winfo_exists():
+            self._create_popup()
+
+        self._listbox.delete(0, tk.END)
+        for item in filtered:
+            self._listbox.insert(tk.END, item)
+
+        self._listbox.config(height=min(len(filtered), 8))
+        self._position_popup()
+
+    def _create_popup(self):
+        self._popup = tk.Toplevel(self)
+        self._popup.wm_overrideredirect(True)
+        self._popup.wm_attributes('-topmost', True)
+
+        self._listbox = tk.Listbox(
+            self._popup, font=('Microsoft YaHei', 9),
+            selectmode=tk.SINGLE, activestyle='dotbox',
+            bd=1, relief=tk.SOLID
+        )
+        self._listbox.pack(fill=tk.BOTH, expand=True)
+        self._listbox.bind('<ButtonRelease-1>', self._on_listbox_click)
+        self._listbox.bind('<Return>', self._on_listbox_confirm)
+        self._listbox.bind('<Escape>', lambda e: self._hide_popup())
+        self._listbox.bind('<FocusOut>', self._schedule_hide)
+
+    def _position_popup(self):
+        if not self._popup:
+            return
+        x = self.winfo_rootx()
+        y = self.winfo_rooty() + self.winfo_height()
+        w = self.winfo_width()
+        self._popup.wm_geometry(f'{w}x{self._listbox.winfo_reqheight()}+{x}+{y}')
+
+    def _on_listbox_click(self, event):
+        sel = self._listbox.curselection()
+        if sel:
+            value = self._listbox.get(sel[0])
+            self._set_value(value)
+
+    def _on_listbox_confirm(self, event):
+        sel = self._listbox.curselection()
+        if sel:
+            value = self._listbox.get(sel[0])
+            self._set_value(value)
+
+    def _confirm_selection(self, event):
+        if self._popup and self._popup.winfo_exists() and self._listbox.curselection():
+            value = self._listbox.get(self._listbox.curselection()[0])
+            self._set_value(value)
+        else:
+            self._hide_popup()
+
+    def _set_value(self, value):
+        self.delete(0, tk.END)
+        self.insert(0, value)
+        self.icursor(tk.END)
+        self._hide_popup()
+        if self.on_select_callback:
+            self.on_select_callback(value)
+
+    def _focus_listbox(self, event):
+        if self._popup and self._popup.winfo_exists():
+            self._listbox.focus_set()
+            if self._listbox.size() > 0:
+                self._listbox.selection_set(0)
+                self._listbox.activate(0)
+
+    def _schedule_hide(self, event=None):
+        self.after(150, self._check_hide)
+
+    def _check_hide(self):
+        focused = self.focus_get()
+        if focused not in (self, self._listbox):
+            self._hide_popup()
+
+    def _hide_popup(self):
+        if self._popup and self._popup.winfo_exists():
+            self._popup.destroy()
+        self._popup = None
+        self._listbox = None
+
+
 class InterestPanel(tk.Frame):
     def __init__(self, master, initial_interests=""):
         super().__init__(master, bg='#f0f0f0')
@@ -169,56 +286,11 @@ class App:
         input_frame.pack(fill=tk.X)
 
         tk.Label(input_frame, text="当前用户:", bg='#f0f0f0').pack(side=tk.LEFT, padx=(0, 5))
-        self.entry_u1_var = tk.StringVar()
-        self.entry_u1 = ttk.Combobox(input_frame, textvariable=self.entry_u1_var, width=25)
+        self.entry_u1 = AutocompleteEntry(
+            input_frame, on_select=self._on_user_selected, width=25
+        )
         self.entry_u1.pack(side=tk.LEFT, padx=5)
         self.entry_u1.insert(0, "1")
-        
-        def on_combo_keyrelease(event):
-            cb = event.widget
-            
-            # 忽略导航键与常规控制键
-            if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Return', 'Escape', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
-                return
-                
-            # 当用户按退格键时，关闭强制下拉框以释放输入法锁定，让原生的光标回退逻辑自由运作
-            if event.keysym == 'BackSpace':
-                try:
-                    cb.tk.call('ttk::combobox::Unpost', cb)
-                except tk.TclError:
-                    pass
-                cb._last_val = cb.get()  # 重置防抖锚点，但我们不 return，继续往下走过滤流程！
-                
-            val = cb.get()
-            
-            # 防抖动与输入法保护：
-            # 在输入法敲击拼音期间，底层 .get() 并不会变化，只有最终文字上屏才会改变。
-            # 如果不加以拦截直接重置 values 或 Post，会强行打断输入法的悬浮窗导致无法打字。
-            if getattr(cb, '_last_val', None) == val:
-                return
-            cb._last_val = val
-
-            if val == '':
-                cb['values'] = self.global_user_list
-            else:
-                # 支持 ID 与 姓名的双轨检索
-                filtered = [u for u in self.global_user_list if val.lower() in u.lower()]
-                cb['values'] = filtered
-            
-            # 安全展开下拉列表（利用延时异步执行，防止Windows事件列队吞掉焦点设置）
-            def delayed_post_and_focus():
-                try:
-                    cb.tk.call('ttk::combobox::Post', cb)
-                    cb.focus_set()
-                    cb.icursor(tk.END)
-                except tk.TclError:
-                    pass
-            
-            cb.after(10, delayed_post_and_focus)
-                
-                
-        self.entry_u1.bind("<KeyRelease>", on_combo_keyrelease)
-        self.entry_u1.bind("<<ComboboxSelected>>", self.on_combo_select)
 
         # 按钮矩阵区: 流式布局自动换行
         btn_frame_main = FlowFrame(top_frame, bg='#f0f0f0')
@@ -228,9 +300,7 @@ class App:
         ttk.Button(btn_frame_main, text="查找二度人脉", command=self.do_2nd)
         ttk.Button(btn_frame_main, text="计算社交距离", command=self.do_dist)
         
-        self.target_var = tk.StringVar()
-        self.combo_target = ttk.Combobox(btn_frame_main, textvariable=self.target_var, width=15)
-        self.combo_target.bind("<KeyRelease>", on_combo_keyrelease)
+        self.combo_target = AutocompleteEntry(btn_frame_main, width=15)
         
         ttk.Button(btn_frame_main, text="智能推荐", command=self.do_rec)
         ttk.Button(btn_frame_main, text="清空结果", command=self.clear_output)
@@ -319,8 +389,8 @@ class App:
             self.global_user_list.append(f"{k} - {uval['name']}")
             
         try:
-            self.entry_u1['values'] = self.global_user_list
-            self.combo_target['values'] = self.global_user_list
+            self.entry_u1.set_candidates(self.global_user_list)
+            self.combo_target.set_candidates(self.global_user_list)
         except AttributeError:
             pass
 
@@ -360,11 +430,9 @@ class App:
         self.ax.set_axis_off()
         self.canvas.draw()
 
-    def on_combo_select(self, event):
-        # 选中目标后不再截断文字，保留 "ID - 姓名" 的全称美观展示
-        val = event.widget.get()
-        if val and " - " in val:
-            uid = val.split(" - ")[0]
+    def _on_user_selected(self, value):
+        if value and " - " in value:
+            uid = value.split(" - ")[0]
             self.update_stats_panel(uid)
 
     def update_stats_panel(self, uid):
