@@ -168,23 +168,11 @@ class App:
         input_frame = tk.Frame(top_frame, bg='#f0f0f0')
         input_frame.pack(fill=tk.X)
 
-        tk.Label(input_frame, text="当前用户ID:", bg='#f0f0f0').pack(side=tk.LEFT, padx=(0, 5))
+        tk.Label(input_frame, text="当前用户:", bg='#f0f0f0').pack(side=tk.LEFT, padx=(0, 5))
         self.entry_u1_var = tk.StringVar()
-        self.entry_u1 = ttk.Combobox(input_frame, textvariable=self.entry_u1_var, width=15)
+        self.entry_u1 = ttk.Combobox(input_frame, textvariable=self.entry_u1_var, width=25)
         self.entry_u1.pack(side=tk.LEFT, padx=5)
-        # 默认填入1作为实例
         self.entry_u1.insert(0, "1")
-
-        # 占位推到右侧
-        tk.Frame(input_frame, bg='#f0f0f0').pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-        tk.Label(input_frame, text="或选择用户:", bg='#f0f0f0').pack(side=tk.LEFT, padx=5)
-        
-        # 组装下拉框数据和搜索绑定
-        self.user_var = tk.StringVar()
-        self.combo_user = ttk.Combobox(input_frame, textvariable=self.user_var, width=25)
-        self.combo_user.pack(side=tk.LEFT, padx=5)
-        self.combo_user.bind("<<ComboboxSelected>>", self.on_combo_select)
         
         def on_combo_keyrelease(event):
             cb = event.widget
@@ -215,7 +203,7 @@ class App:
             except tk.TclError:
                 pass
                 
-        self.combo_user.bind("<KeyRelease>", on_combo_keyrelease)
+                
         self.entry_u1.bind("<KeyRelease>", on_combo_keyrelease)
         self.entry_u1.bind("<<ComboboxSelected>>", self.on_combo_select)
 
@@ -317,10 +305,9 @@ class App:
             uval = self.hash_table.get(k)
             self.global_user_list.append(f"{k} - {uval['name']}")
             
-        self.combo_user['values'] = self.global_user_list
         try:
-            self.combo_target['values'] = self.global_user_list
             self.entry_u1['values'] = self.global_user_list
+            self.combo_target['values'] = self.global_user_list
         except AttributeError:
             pass
 
@@ -361,21 +348,12 @@ class App:
         self.canvas.draw()
 
     def on_combo_select(self, event):
-        # 处理下拉框被选中联动同步到ID框
+        # 选中目标后不再截断文字，保留 "ID - 姓名" 的全称美观展示
         val = event.widget.get()
         if val and " - " in val:
             uid = val.split(" - ")[0]
-            
-            # 如果触发者是主ID框自己，只有当选中的值和当前不一样才刷新，避免重复光标跳动
-            if event.widget == self.entry_u1:
-                # 即使是自己，为了确保显示纯数字，强制覆写并把光标推到底
-                self.entry_u1.delete(0, tk.END)
-                self.entry_u1.insert(0, uid)
-                self.entry_u1.icursor(tk.END)
-            else:
-                self.entry_u1.delete(0, tk.END)
-                self.entry_u1.insert(0, uid)
-                
+            # 焦点转移防止继续强占输入法
+            self.r.focus_set()
             self.update_stats_panel(uid)
 
     def update_stats_panel(self, uid):
