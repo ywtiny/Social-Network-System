@@ -441,20 +441,104 @@ class App:
         uinfo = self.hash_table.get(uid)
         
         dialog = tk.Toplevel(self.r)
-        dialog.title(f"修改档案 - {uid}")
-        dialog.minsize(350, 200)
+        dialog.title(f"修改档案与好友管理 - {uid}")
+        dialog.minsize(450, 400)
         dialog.configure(bg='#f0f0f0')
         dialog.grab_set()
         
-        tk.Label(dialog, text="姓名 (必填):", bg='#f0f0f0').grid(row=0, column=0, padx=10, pady=10, sticky=tk.E)
-        entry_name = tk.Entry(dialog, width=20)
-        entry_name.insert(0, uinfo['name'])
-        entry_name.grid(row=0, column=1, padx=10, pady=10)
+        # --- 基本信息修改区 ---
+        frame_basic = tk.LabelFrame(dialog, text="基本信息修改", bg='#f0f0f0', font=("Microsoft YaHei", 9, "bold"))
+        frame_basic.pack(fill=tk.X, padx=10, pady=5)
         
-        tk.Label(dialog, text="兴趣标签 (纸片):", bg='#f0f0f0').grid(row=1, column=0, padx=10, pady=10, sticky=tk.NE)
-        ip = InterestPanel(dialog, initial_interests=uinfo['interests'])
+        tk.Label(frame_basic, text="姓名 (必填):", bg='#f0f0f0').grid(row=0, column=0, padx=10, pady=10, sticky=tk.E)
+        entry_name = tk.Entry(frame_basic, width=20)
+        entry_name.insert(0, uinfo['name'])
+        entry_name.grid(row=0, column=1, padx=10, pady=10, sticky=tk.W)
+        
+        tk.Label(frame_basic, text="兴趣标签:", bg='#f0f0f0').grid(row=1, column=0, padx=10, pady=10, sticky=tk.NE)
+        ip = InterestPanel(frame_basic, initial_interests=uinfo['interests'])
         ip.grid(row=1, column=1, padx=10, pady=10, sticky=tk.EW)
         
+        # --- 好友关系管理区 ---
+        frame_friends = tk.LabelFrame(dialog, text="直接好友管理", bg='#f0f0f0', font=("Microsoft YaHei", 9, "bold"))
+        frame_friends.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        input_f = tk.Frame(frame_friends, bg='#f0f0f0')
+        input_f.pack(fill=tk.X, padx=10, pady=5)
+        
+        tk.Label(input_f, text="目标用户:", bg='#f0f0f0').pack(side=tk.LEFT)
+        combo_f = AutocompleteEntry(input_f, width=20, candidates=self.global_user_list)
+        combo_f.pack(side=tk.LEFT, padx=5)
+        
+        def refresh_friend_list():
+            listbox_f.delete(0, tk.END)
+            neighbors = self.graph.get_neighbors(uid)
+            if neighbors:
+                for n_id in neighbors:
+                    if self.hash_table.get(n_id):
+                        n_name = self.hash_table.get(n_id)['name']
+                        listbox_f.insert(tk.END, f"{n_id} - {n_name}")
+            else:
+                listbox_f.insert(tk.END, "暂无直接好友")
+                
+        def add_friend_link():
+            target = combo_f.get().strip()
+            if not target or " - " not in target:
+                messagebox.showwarning("提示", "请选择有效的对方用户以添加好友关系！", parent=dialog)
+                return
+            t_uid = target.split(" - ")[0]
+            if t_uid == uid:
+                messagebox.showwarning("提示", "不能给自己添加好友哦！", parent=dialog)
+                return
+            
+            # 双向添加边保证无向图的完整互踩
+            self.graph.add_edge(uid, t_uid, 1)
+            self.graph.add_edge(t_uid, uid, 1)
+            refresh_friend_list()
+            combo_f.delete(0, tk.END)
+            self.out(f"[好友管理] 为 {uid} 节点与 {t_uid} 节点已互加好友关系边。")
+            self.draw_graph()
+            
+        def remove_friend_link():
+            sel = listbox_f.curselection()
+            if not sel:
+                messagebox.showwarning("提示", "请在下方好友列表中选中一个名字以解除关系！", parent=dialog)
+                return
+            val = listbox_f.get(sel[0])
+            if " - " not in val:
+                return # 选到了占位空提示
+                
+            t_uid = val.split(" - ")[0]
+            # 社交网络往往是双向关系删除
+            try:
+                self.graph.adj_list[uid].remove(t_uid)
+            except ValueError: pass
+            try:
+                self.graph.adj_list[t_uid].remove(uid)
+            except ValueError: pass
+            
+            refresh_friend_list()
+            self.out(f"[好友管理] 从 {uid} 节点移除了指向 {t_uid} 节点的双向好友关系边。")
+            self.draw_graph()
+        
+        btn_add_f = ttk.Button(input_f, text="增加此人为好友", command=add_friend_link)
+        btn_add_f.pack(side=tk.LEFT, padx=(5,0))
+        
+        lb_frame = tk.Frame(frame_friends, bg='#f0f0f0')
+        lb_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        listbox_f = tk.Listbox(lb_frame, font=("Microsoft YaHei", 9), selectmode=tk.SINGLE, bd=1, relief=tk.SOLID)
+        listbox_f.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll_f = ttk.Scrollbar(lb_frame, command=listbox_f.yview)
+        scroll_f.pack(side=tk.RIGHT, fill=tk.Y)
+        listbox_f.config(yscrollcommand=scroll_f.set)
+        
+        btn_rm_f = ttk.Button(frame_friends, text="解除选中好友关系", command=remove_friend_link)
+        btn_rm_f.pack(pady=5)
+        
+        refresh_friend_list()
+        
+        # --- 保存动作 ---
         def confirm_edit():
             name = entry_name.get().strip()
             interests = ip.get_interests_str()
@@ -469,12 +553,12 @@ class App:
             self.refresh_user_combos()
             
             self.update_stats_panel(uid)
-            self.out(f"[系统日志] 用户 {name} ({uid}) 档案元数据修改成功。")
+            self.out(f"[系统日志] 用户 {name} ({uid}) 档案及好友结构调整完毕。")
             self.save_to_disk()
-            messagebox.showinfo("成功", "信息保存成功！", parent=dialog)
+            messagebox.showinfo("成功", "所有信息及关系统一保存至磁盘！", parent=dialog)
             dialog.destroy()
             
-        ttk.Button(dialog, text="保存修改", command=confirm_edit).grid(row=2, column=0, columnspan=2, pady=15)
+        ttk.Button(dialog, text="保存所有修改并退出", command=confirm_edit).pack(pady=10)
 
     def show_add_user_dialog(self):
         dialog = tk.Toplevel(self.r)
