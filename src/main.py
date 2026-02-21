@@ -268,13 +268,15 @@ class App:
                 filtered = [u for u in self.global_user_list if val.lower() in u.lower()]
                 cb['values'] = filtered
             
-            # 安全展开下拉列表
-            try:
-                cb.tk.call('ttk::combobox::Post', cb)
-                cb.focus_set()
-                cb.icursor(tk.END)
-            except tk.TclError:
-                pass
+            # 安全展开下拉列表（延迟 1ms 防止 KeyRelease 事件期间焦点被抢夺）
+            def do_post():
+                try:
+                    cb.tk.call('ttk::combobox::Post', cb)
+                    cb.focus_set()
+                    cb.icursor(tk.END)
+                except tk.TclError:
+                    pass
+            cb.after(1, do_post)
                 
                 
         self.on_combo_keyrelease = on_combo_keyrelease
