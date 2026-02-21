@@ -282,6 +282,7 @@ class App:
                 pass
                 
                 
+        self.on_combo_keyrelease = on_combo_keyrelease
         self.entry_u1.bind("<KeyRelease>", on_combo_keyrelease)
         self.entry_u1.bind("<<ComboboxSelected>>", self.on_combo_select)
 
@@ -532,7 +533,7 @@ class App:
         fp = FriendPanel(
             frame_friends, candidates=self.global_user_list,
             initial_friends=current_friends,
-            on_combo_keyrelease=on_combo_keyrelease
+            on_combo_keyrelease=self.on_combo_keyrelease
         )
         fp.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
@@ -604,7 +605,7 @@ class App:
         tk.Label(dialog, text="直接好友 (纸片):", bg='#f0f0f0').grid(row=3, column=0, padx=10, pady=10, sticky=tk.NE)
         fp = FriendPanel(
             dialog, candidates=self.global_user_list,
-            on_combo_keyrelease=on_combo_keyrelease
+            on_combo_keyrelease=self.on_combo_keyrelease
         )
         fp.grid(row=3, column=1, padx=10, pady=10, sticky=tk.EW)
         
