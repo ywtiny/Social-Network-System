@@ -101,6 +101,73 @@ class InterestPanel(tk.Frame):
         return ";".join(self.tags)
 
 
+class FriendPanel(tk.Frame):
+    """好友管理组件：纸片标签 + Combobox 联想搜索"""
+    def __init__(self, master, candidates, initial_friends=None, on_combo_keyrelease=None):
+        super().__init__(master, bg='#f0f0f0')
+        self.candidates = candidates
+        self.friend_ids = []
+        self.on_combo_keyrelease = on_combo_keyrelease
+        
+        input_f = tk.Frame(self, bg='#f0f0f0')
+        input_f.pack(fill=tk.X)
+        self.combo_var = tk.StringVar()
+        self.combo = ttk.Combobox(input_f, textvariable=self.combo_var, width=18, values=candidates)
+        self.combo.pack(side=tk.LEFT)
+        if on_combo_keyrelease:
+            self.combo.bind('<KeyRelease>', on_combo_keyrelease)
+        self.combo.bind('<<ComboboxSelected>>', lambda e: self.add_friend())
+        
+        btn = ttk.Button(input_f, text="添加好友", width=8, command=self.add_friend)
+        btn.pack(side=tk.LEFT, padx=(5, 0))
+        
+        self.chips_frame = FlowFrame(self, bg='#f0f0f0')
+        self.chips_frame.pack(fill=tk.BOTH, expand=True, pady=(5,0))
+        
+        if initial_friends:
+            for fid in initial_friends:
+                if fid not in self.friend_ids:
+                    self.friend_ids.append(fid)
+            self.render_chips()
+        
+    def add_friend(self, val=None):
+        if val is None:
+            val = self.combo.get().strip()
+        if not val or ' - ' not in val:
+            return
+        fid = val.split(' - ')[0]
+        if fid and fid not in self.friend_ids:
+            self.friend_ids.append(fid)
+            self.render_chips()
+        self.combo.set('')
+        
+    def remove_friend(self, fid):
+        if fid in self.friend_ids:
+            self.friend_ids.remove(fid)
+            self.render_chips()
+            
+    def render_chips(self):
+        for widget in self.chips_frame.winfo_children():
+            widget.destroy()
+        
+        for fid in self.friend_ids:
+            display = fid
+            for c in self.candidates:
+                if c.startswith(fid + ' - '):
+                    display = c
+                    break
+            chip = tk.Frame(self.chips_frame, bg='#dbeafe', bd=1, relief=tk.SOLID)
+            tk.Label(chip, text=display, bg='#dbeafe', font=("Microsoft YaHei", 9)).pack(side=tk.LEFT, padx=(2, 0))
+            btn_x = tk.Label(chip, text=" ✕ ", fg="red", bg='#dbeafe', font=("Microsoft YaHei", 9, "bold"), cursor="hand2")
+            btn_x.pack(side=tk.LEFT)
+            btn_x.bind("<Button-1>", lambda e, f=fid: self.remove_friend(f))
+            
+        self.chips_frame.update_idletasks()
+        self.chips_frame._on_configure()
+        
+    def get_friend_ids(self):
+        return self.friend_ids[:]
+
 class App:
     def __init__(self, root):
         self.r = root
@@ -461,82 +528,13 @@ class App:
         frame_friends = tk.LabelFrame(dialog, text="直接好友管理", bg='#f0f0f0', font=("Microsoft YaHei", 9, "bold"))
         frame_friends.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
-        input_f = tk.Frame(frame_friends, bg='#f0f0f0')
-        input_f.pack(fill=tk.X, padx=10, pady=5)
-        
-        tk.Label(input_f, text="目标用户:", bg='#f0f0f0').pack(side=tk.LEFT)
-        friend_var = tk.StringVar()
-        combo_f = ttk.Combobox(input_f, textvariable=friend_var, width=20, values=self.global_user_list)
-        combo_f.pack(side=tk.LEFT, padx=5)
-        combo_f.bind('<KeyRelease>', on_combo_keyrelease)
-        
-        # 先把组件实例化！否则后面的闭包函数会报 NameError 导致界面渲染断裂！
-        lb_frame = tk.Frame(frame_friends, bg='#f0f0f0')
-        lb_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        
-        listbox_f = tk.Listbox(lb_frame, font=("Microsoft YaHei", 9), selectmode=tk.SINGLE, bd=1, relief=tk.SOLID)
-        listbox_f.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll_f = ttk.Scrollbar(lb_frame, command=listbox_f.yview)
-        scroll_f.pack(side=tk.RIGHT, fill=tk.Y)
-        listbox_f.config(yscrollcommand=scroll_f.set)
-        
-        def refresh_friend_list():
-            listbox_f.delete(0, tk.END)
-            neighbors = self.graph.get_neighbors(uid)
-            if neighbors:
-                for n_id in neighbors:
-                    if self.hash_table.get(n_id):
-                        n_name = self.hash_table.get(n_id)['name']
-                        listbox_f.insert(tk.END, f"{n_id} - {n_name}")
-            else:
-                listbox_f.insert(tk.END, "暂无直接好友")
-                
-        def add_friend_link():
-            target = combo_f.get().strip()
-            if not target or " - " not in target:
-                messagebox.showwarning("提示", "请选择有效的对方用户以添加好友关系！", parent=dialog)
-                return
-            t_uid = target.split(" - ")[0]
-            if t_uid == uid:
-                messagebox.showwarning("提示", "不能给自己添加好友哦！", parent=dialog)
-                return
-            
-            # 双向添加边保证无向图的完整互踩
-            self.graph.add_edge(uid, t_uid)
-            refresh_friend_list()
-            combo_f.delete(0, tk.END)
-            self.out(f"[好友管理] 为 {uid} 节点与 {t_uid} 节点已互加好友关系边。")
-            self.draw_graph()
-            
-        def remove_friend_link():
-            sel = listbox_f.curselection()
-            if not sel:
-                messagebox.showwarning("提示", "请在下方好友列表中选中一个名字以解除关系！", parent=dialog)
-                return
-            val = listbox_f.get(sel[0])
-            if " - " not in val:
-                return # 选到了占位空提示
-                
-            t_uid = val.split(" - ")[0]
-            # 社交网络往往是双向关系删除
-            try:
-                self.graph.adj_list[uid].remove(t_uid)
-            except ValueError: pass
-            try:
-                self.graph.adj_list[t_uid].remove(uid)
-            except ValueError: pass
-            
-            refresh_friend_list()
-            self.out(f"[好友管理] 从 {uid} 节点移除了指向 {t_uid} 节点的双向好友关系边。")
-            self.draw_graph()
-        
-        btn_add_f = ttk.Button(input_f, text="增加此人为好友", command=add_friend_link)
-        btn_add_f.pack(side=tk.LEFT, padx=(5,0))
-        
-        btn_rm_f = ttk.Button(frame_friends, text="解除选中好友关系", command=remove_friend_link)
-        btn_rm_f.pack(pady=5)
-        
-        refresh_friend_list()
+        current_friends = self.graph.get_neighbors(uid)
+        fp = FriendPanel(
+            frame_friends, candidates=self.global_user_list,
+            initial_friends=current_friends,
+            on_combo_keyrelease=on_combo_keyrelease
+        )
+        fp.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
         # --- 保存动作 ---
         def confirm_edit():
@@ -549,10 +547,20 @@ class App:
                 
             self.hash_table.put(uid, {"name": name, "interests": interests})
             
-            # 更新下拉框文字
-            self.refresh_user_combos()
+            # 重建好友关系：先清空旧关系，再根据纸片标签重新添加
+            old_neighbors = list(self.graph.get_neighbors(uid))
+            for old_n in old_neighbors:
+                try: self.graph.adj_list[uid].remove(old_n)
+                except ValueError: pass
+                try: self.graph.adj_list[old_n].remove(uid)
+                except ValueError: pass
             
+            for fid in fp.get_friend_ids():
+                self.graph.add_edge(uid, fid)
+            
+            self.refresh_user_combos()
             self.update_stats_panel(uid)
+            self.draw_graph()
             self.out(f"[系统日志] 用户 {name} ({uid}) 档案及好友结构调整完毕。")
             self.save_to_disk()
             messagebox.showinfo("成功", "所有信息及关系统一保存至磁盘！", parent=dialog)
@@ -593,58 +601,18 @@ class App:
         ip = InterestPanel(dialog)
         ip.grid(row=2, column=1, padx=10, pady=10, sticky=tk.EW)
         
-        tk.Label(dialog, text="选择直接好友 (可多选):", bg='#f0f0f0').grid(row=3, column=0, padx=10, pady=10, sticky=tk.NE)
-        
-        # 好友多选列表框及搜索区
-        friend_frame = tk.Frame(dialog, bg='#f0f0f0')
-        friend_frame.grid(row=3, column=1, padx=10, pady=10, sticky=tk.W)
-        
-        # 搜索输入框
-        search_f = tk.Frame(friend_frame, bg='#f0f0f0')
-        search_f.pack(fill=tk.X, pady=(0, 5))
-        tk.Label(search_f, text="搜寻:", bg='#f0f0f0').pack(side=tk.LEFT)
-        entry_search_friend = tk.Entry(search_f, width=15)
-        entry_search_friend.pack(side=tk.LEFT, padx=(5, 0))
-        
-        list_f = tk.Frame(friend_frame, bg='#f0f0f0')
-        list_f.pack(fill=tk.BOTH, expand=True)
-        friend_scroll = tk.Scrollbar(list_f)
-        friend_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        list_friends = tk.Listbox(list_f, selectmode=tk.MULTIPLE, yscrollcommand=friend_scroll.set, width=22, height=6)
-        list_friends.pack(side=tk.LEFT, fill=tk.BOTH)
-        friend_scroll.config(command=list_friends.yview)
-        
-        # 填充现有用户列表
-        existing_users = []
-        for k in sorted(self.hash_table.get_all_keys(), key=lambda x: int(str(x).replace('\ufeff', ''))):
-            uval = self.hash_table.get(k)
-            display_str = f"{k} - {uval['name']}"
-            existing_users.append({'uid': k, 'display': display_str})
-            list_friends.insert(tk.END, display_str)
-            
-        def filter_friends(event):
-            val = entry_search_friend.get().lower()
-            list_friends.delete(0, tk.END)
-            for u in existing_users:
-                if val in u['display'].lower():
-                    list_friends.insert(tk.END, u['display'])
-                    
-        entry_search_friend.bind("<KeyRelease>", filter_friends)
+        tk.Label(dialog, text="直接好友 (纸片):", bg='#f0f0f0').grid(row=3, column=0, padx=10, pady=10, sticky=tk.NE)
+        fp = FriendPanel(
+            dialog, candidates=self.global_user_list,
+            on_combo_keyrelease=on_combo_keyrelease
+        )
+        fp.grid(row=3, column=1, padx=10, pady=10, sticky=tk.EW)
         
         def confirm_add():
             uid = entry_id.get().strip()
             name = entry_name.get().strip()
             interests = ip.get_interests_str()
-            
-            # 获取用户在Listbox中选中的所有显示文本，再反查真实UID
-            selected_indices = list_friends.curselection()
-            selected_displays = [list_friends.get(i) for i in selected_indices]
-            friend_ids = []
-            for d in selected_displays:
-                for u in existing_users:
-                    if u['display'] == d:
-                        friend_ids.append(u['uid'])
-                        break
+            friend_ids = fp.get_friend_ids()
             
             if not name:
                 messagebox.showerror("错误", "姓名不能为空！", parent=dialog)
@@ -657,20 +625,13 @@ class App:
             # 存入哈希表
             self.hash_table.put(uid, {"name": name, "interests": interests})
             
-            # 由于我们的邻接表添加边时会自动隐式添加节点，但为了规范，手动查一下
-            # 读取并关联好友
             for fid in friend_ids:
                 if self.hash_table.get(fid):
                     self.graph.add_edge(uid, fid)
             
-            # 更新下拉框列表
             self.refresh_user_combos()
-            
-            # 更新统计数字概览
             self.lbl_overview_users.config(text=f"用户总数: {len(self.hash_table.get_all_keys())}")
             self.update_stats_panel(uid)
-            
-            # 手动触发关联图谱重渲染
             self.draw_graph()
             
             self.out(f"[系统日志] 新用户 {name}({uid}) 已接入系统网络。", clear=False)
