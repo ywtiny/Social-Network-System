@@ -19,16 +19,20 @@ def load_all_data(user_path, friend_path, hash_table, graph):
         ValueError: 从底层接管异常抛往上端展现给用户
     """
     try:
-        with open(user_path, "r", encoding="utf-8") as f:
+        with open(user_path, "r", encoding="utf-8-sig") as f:
             lines = f.readlines()
             for i in range(1, len(lines)):  # 跳过首行表头内容
+                if not lines[i].strip():
+                    continue
                 parts = lines[i].strip().split(",")
                 if len(parts) >= 3:
                     # 记录核心用户兴趣元数据
                     hash_table.put(parts[0], {"name": parts[1], "interests": parts[2]})
 
-        with open(friend_path, "r", encoding="utf-8") as f:
+        with open(friend_path, "r", encoding="utf-8-sig") as f:
             for line in f:
+                if not line.strip():
+                    continue
                 parts = line.strip().split(",")
                 if len(parts) == 2:
                     # 并入图网络无向连线
@@ -45,7 +49,7 @@ def save_all_data(user_path, friend_path, hash_table, graph):
         with open(user_path, "w", encoding="utf-8") as f:
             f.write("用户ID,姓名,兴趣标签\n")
             # 排序保障文本的顺序一致性
-            sorted_keys = sorted(hash_table.get_all_keys(), key=lambda x: int(str(x).replace('\ufeff', '')))
+            sorted_keys = sorted(hash_table.get_all_keys(), key=lambda x: int(x))
             for uid in sorted_keys:
                 uinfo = hash_table.get(uid)
                 f.write(f"{uid},{uinfo['name']},{uinfo['interests']}\n")
@@ -53,10 +57,10 @@ def save_all_data(user_path, friend_path, hash_table, graph):
         # 重写好友无向图关系 (去重写入)
         written_edges = set()
         with open(friend_path, "w", encoding="utf-8") as f:
-            for u in sorted(graph.get_all_nodes(), key=lambda x: int(str(x).replace('\ufeff', ''))):
-                for v in sorted(graph.get_neighbors(u), key=lambda x: int(str(x).replace('\ufeff', ''))):
+            for u in sorted(graph.get_all_nodes(), key=lambda x: int(x)):
+                for v in sorted(graph.get_neighbors(u), key=lambda x: int(x)):
                     # 为了无向图不写两遍 1,2 和 2,1，统一按从小到大排序形成 tuple 签名
-                    u_int, v_int = int(str(u).replace('\ufeff', '')), int(str(v).replace('\ufeff', ''))
+                    u_int, v_int = int(u), int(v)
                     edge = (min(u_int, v_int), max(u_int, v_int))
                     if edge not in written_edges:
                         f.write(f"{u},{v}\n")

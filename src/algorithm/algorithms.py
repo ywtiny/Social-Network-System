@@ -9,6 +9,7 @@
 
 import sys
 import os
+from collections import deque
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from data_structure.heap import MinHeap
@@ -40,13 +41,23 @@ def get_second_degree(graph, user_id):
     Returns:
         list: 满足条件的二度人脉 ID 集合
     """
-    # 排斥循环引用与自回环的二度BFS
-    first = set(graph.get_neighbors(user_id))
+    # 标准 BFS 实现，通过队列逐层扩展，depth 控制深度为 2
+    visited = {user_id}
+    queue = deque()
+    queue.append((user_id, 0))
+    first_degree = set(graph.get_neighbors(user_id))
     second = set()
-    for f in first:
-        for f_of_f in graph.get_neighbors(f):
-            if f_of_f != user_id and f_of_f not in first:
-                second.add(f_of_f)
+
+    while queue:
+        current, depth = queue.popleft()
+        if depth >= 2:
+            continue
+        for neighbor in graph.get_neighbors(current):
+            if neighbor not in visited:
+                visited.add(neighbor)
+                if depth + 1 == 2 and neighbor not in first_degree:
+                    second.add(neighbor)
+                queue.append((neighbor, depth + 1))
     return list(second)
 
 
@@ -66,11 +77,12 @@ def shortest_distance(graph, start, end):
     if start == end:
         return 0, [start]
 
-    queue = [(start, [start])]
+    queue = deque()
+    queue.append((start, [start]))
     visited = {start}
 
     while queue:
-        curr, path = queue.pop(0)
+        curr, path = queue.popleft()
         for neighbor in graph.get_neighbors(curr):
             if neighbor == end:
                 return len(path), path + [neighbor]
