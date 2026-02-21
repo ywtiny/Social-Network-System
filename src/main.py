@@ -180,11 +180,21 @@ class App:
             # 忽略导航键与常规控制键
             if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Return', 'Escape', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
                 return
-            
+                
+            # 当用户按退格键时，关闭强制下拉框以释放输入法锁定，让原生的光标回退逻辑自由运作
+            if event.keysym == 'BackSpace':
+                try:
+                    cb.tk.call('ttk::combobox::Unpost', cb)
+                except tk.TclError:
+                    pass
+                cb._last_val = cb.get()  # 重置防抖锚点
+                return
+                
             val = cb.get()
             
             # 防抖动与输入法保护：
             # 在输入法敲击拼音期间，底层 .get() 并不会变化，只有最终文字上屏才会改变。
+            # 如果不加以拦截直接重置 values 或 Post，会强行打断输入法的悬浮窗导致无法打字。
             if getattr(cb, '_last_val', None) == val:
                 return
             cb._last_val = val
@@ -192,8 +202,17 @@ class App:
             if val == '':
                 cb['values'] = self.global_user_list
             else:
+                # 支持 ID 与 姓名的双轨检索
                 filtered = [u for u in self.global_user_list if val.lower() in u.lower()]
                 cb['values'] = filtered
+            
+            # 安全展开下拉列表
+            try:
+                cb.tk.call('ttk::combobox::Post', cb)
+                cb.focus_set()
+                cb.icursor(tk.END)
+            except tk.TclError:
+                pass
                 
                 
         self.entry_u1.bind("<KeyRelease>", on_combo_keyrelease)
