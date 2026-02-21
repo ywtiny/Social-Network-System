@@ -245,43 +245,85 @@ class App:
         self.entry_u1 = ttk.Combobox(input_frame, textvariable=self.entry_u1_var, width=25)
         self.entry_u1.pack(side=tk.LEFT, padx=5)
         self.entry_u1.insert(0, "1")
+        # ── 自研联想浮窗系统（彻底替代 ttk::combobox::Post 焦点抢夺问题）──
+        self._autocomplete_popup = None
+        
+        def _close_autocomplete():
+            if self._autocomplete_popup:
+                self._autocomplete_popup.destroy()
+                self._autocomplete_popup = None
+        
+        def _show_autocomplete(cb, items):
+            _close_autocomplete()
+            if not items:
+                return
+            
+            popup = tk.Toplevel(self.r)
+            popup.wm_overrideredirect(True)
+            popup.wm_attributes('-topmost', True)
+            self._autocomplete_popup = popup
+            
+            listbox = tk.Listbox(popup, font=("Microsoft YaHei", 9), 
+                                 selectmode=tk.SINGLE, bd=1, relief=tk.SOLID,
+                                 activestyle='dotbox')
+            listbox.pack(fill=tk.BOTH, expand=True)
+            
+            display_items = items[:8]
+            for item in display_items:
+                listbox.insert(tk.END, item)
+            
+            # 定位到输入框正下方
+            cb.update_idletasks()
+            x = cb.winfo_rootx()
+            y = cb.winfo_rooty() + cb.winfo_height()
+            w = max(cb.winfo_width(), 200)
+            h = len(display_items) * 22
+            popup.wm_geometry(f"{w}x{h}+{x}+{y}")
+            
+            def on_listbox_click(e):
+                sel = listbox.curselection()
+                if sel:
+                    val = listbox.get(sel[0])
+                    cb.set(val)
+                    cb._last_val = val
+                _close_autocomplete()
+                cb.focus_set()
+                cb.icursor(tk.END)
+            
+            listbox.bind('<Button-1>', on_listbox_click)
         
         def on_combo_keyrelease(event):
             cb = event.widget
             
-            # 忽略导航键与常规控制键
-            if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Return', 'Escape', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
+            if event.keysym in ('Up', 'Down', 'Left', 'Right', 'Shift_L', 'Shift_R', 'Control_L', 'Control_R'):
+                return
+            if event.keysym == 'Escape':
+                _close_autocomplete()
+                return
+            if event.keysym == 'Return':
+                _close_autocomplete()
                 return
             
             val = cb.get()
             
-            # 防抖动与输入法保护：
-            # 在输入法敲击拼音期间，底层 .get() 并不会变化，只有最终文字上屏才会改变。
-            # 如果不加以拦截直接重置 values 或 Post，会强行打断输入法的悬浮窗导致无法打字。
+            # 防抖动与输入法保护
             if getattr(cb, '_last_val', None) == val:
                 return
             cb._last_val = val
 
             if val == '':
                 cb['values'] = self.global_user_list
+                _close_autocomplete()
             else:
                 filtered = [u for u in self.global_user_list if val.lower() in u.lower()]
                 cb['values'] = filtered
-            
-            # 安全展开下拉列表（延迟 1ms 防止 KeyRelease 事件期间焦点被抢夺）
-            def do_post():
-                try:
-                    cb.tk.call('ttk::combobox::Post', cb)
-                    cb.focus_set()
-                    cb.icursor(tk.END)
-                except tk.TclError:
-                    pass
-            cb.after(1, do_post)
+                _show_autocomplete(cb, filtered)
                 
                 
         self.on_combo_keyrelease = on_combo_keyrelease
         self.entry_u1.bind("<KeyRelease>", on_combo_keyrelease)
         self.entry_u1.bind("<<ComboboxSelected>>", self.on_combo_select)
+        self.entry_u1.bind("<FocusOut>", lambda e: self.r.after(200, _close_autocomplete))
 
         # 按钮矩阵区: 流式布局自动换行
         btn_frame_main = FlowFrame(top_frame, bg='#f0f0f0')
