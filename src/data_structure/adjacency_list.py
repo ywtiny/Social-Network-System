@@ -30,7 +30,7 @@ class Graph:
         """
         if node_id in self.adj_list:
             # 先从其所有邻居的邻接表中移除该节点
-            for neighbor in self.adj_list[node_id]:
+            for neighbor in list(self.adj_list[node_id]):
                 if neighbor in self.adj_list and node_id in self.adj_list[neighbor]:
                     self.adj_list[neighbor].remove(node_id)
             # 最后删除该节点本身
@@ -52,6 +52,38 @@ class Graph:
             self.adj_list[u].append(v)
         if u not in self.adj_list[v]:
             self.adj_list[v].append(u)
+
+    def remove_edge(self, u, v):
+        """
+        删除无向边。
+
+        Args:
+            u (str): 节点 u 的 ID
+            v (str): 节点 v 的 ID
+
+        Returns:
+            bool: 至少删除了一侧关系返回 True，否则返回 False
+        """
+        removed = False
+        if u in self.adj_list and v in self.adj_list[u]:
+            self.adj_list[u].remove(v)
+            removed = True
+        if v in self.adj_list and u in self.adj_list[v]:
+            self.adj_list[v].remove(u)
+            removed = True
+        return removed
+
+    def has_node(self, node_id):
+        """
+        判断节点是否存在于图中。
+        """
+        return node_id in self.adj_list
+
+    def has_edge(self, u, v):
+        """
+        判断两节点之间是否存在无向边。
+        """
+        return u in self.adj_list and v in self.adj_list[u]
 
     def get_neighbors(self, node_id):
         """

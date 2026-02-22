@@ -41,24 +41,47 @@ def get_second_degree(graph, user_id):
     Returns:
         list: 满足条件的二度人脉 ID 集合
     """
+    return [uid for uid, _ in get_second_degree_with_paths(graph, user_id)]
+
+
+def get_second_degree_with_paths(graph, user_id):
+    """
+    获取二度人脉及其与目标用户的连接路径。
+
+    Returns:
+        list[tuple[str, list[str]]]: [(二度人脉ID, [目标ID, 一度好友ID, 二度人脉ID]), ...]
+    """
     # 标准 BFS 实现，通过队列逐层扩展，depth 控制深度为 2
     visited = {user_id}
     queue = deque()
-    queue.append((user_id, 0))
+    queue.append((user_id, 0, [user_id]))
     first_degree = set(graph.get_neighbors(user_id))
-    second = set()
+    second_with_paths = []
 
     while queue:
-        current, depth = queue.popleft()
+        current, depth, path = queue.popleft()
         if depth >= 2:
             continue
         for neighbor in graph.get_neighbors(current):
             if neighbor not in visited:
+                next_depth = depth + 1
+                next_path = path + [neighbor]
                 visited.add(neighbor)
-                if depth + 1 == 2 and neighbor not in first_degree:
-                    second.add(neighbor)
-                queue.append((neighbor, depth + 1))
-    return list(second)
+
+                if next_depth == 2 and neighbor not in first_degree:
+                    second_with_paths.append((neighbor, next_path))
+                elif next_depth < 2:
+                    queue.append((neighbor, next_depth, next_path))
+
+    def _sort_uid(item):
+        uid = item[0]
+        uid_str = str(uid)
+        if uid_str.isdigit():
+            return (0, int(uid_str))
+        return (1, uid_str)
+
+    second_with_paths.sort(key=_sort_uid)
+    return second_with_paths
 
 
 def shortest_distance(graph, start, end):
