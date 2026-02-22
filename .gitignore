@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+.idea/
+.vscode/
+*.spec
+build/
+dist/
+
+# 排除测试数据和个人报告
+data/test_50_users/
+test_50_users/
+generate_test_data.py
+data/generate_test_data.py
+*_课程设计报告.md
+assets/screenshots/辅助照片/

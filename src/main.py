@@ -217,6 +217,11 @@ class App:
         
         self.r.config(menu=menu_bar)
 
+        # 注册全局快捷键 (支持 Ctrl+=/Ctrl+- 与 Ctrl+滚轮 缩放字体)
+        self.r.bind("<Control-equal>", lambda e: self.adjust_font_size(1))
+        self.r.bind("<Control-minus>", lambda e: self.adjust_font_size(-1))
+        self.r.bind("<Control-MouseWheel>", lambda e: self.adjust_font_size(1 if e.delta > 0 else -1))
+
         # 标题
         tk.Label(
             top_frame, text="社交网络分析系统", font=("Microsoft YaHei", 16, "bold"), bg='#F0F6FB'
@@ -382,11 +387,77 @@ class App:
         self.tab_graph = ttk.Frame(self.notebook)
         self.notebook.add(self.tab_graph, text="网络图谱")
         
+        # 图谱工具栏
+        graph_toolbar = tk.Frame(self.tab_graph, bg='#F0F6FB')
+        graph_toolbar.pack(fill=tk.X, padx=5, pady=2)
+        ttk.Button(graph_toolbar, text="重置视图", command=self._reset_graph_view, style="Btn6.TButton").pack(side=tk.LEFT, padx=2)
+        tk.Label(graph_toolbar, text="提示: 滚轮缩放 | 右键拖拽平移", bg='#F0F6FB', fg='#888', font=("Microsoft YaHei", 8)).pack(side=tk.RIGHT)
+        
         # 内置 Matplotlib 图像画布容器
-        self.fig, self.ax = plt.subplots(figsize=(6, 5))
-        self.fig.patch.set_facecolor('#F0F8FF') # 匹配背景色
+        self.fig, self.ax = plt.subplots(figsize=(10, 6))
+        self.fig.patch.set_facecolor('#F0F8FF')
+        self.fig.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.tab_graph)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        
+        # --- 图谱交互：滚轮缩放 + 右键拖拽平移 ---
+        self._graph_drag_data = {}
+        self._graph_zoom_level = 1.0
+        self._graph_node_collections = []
+        self._graph_base_node_size = 400
+        self._graph_label_texts = {}
+        self._graph_base_font_size = 9
+        self._graph_edge_collection = None
+        self._graph_base_line_width = 1.5
+        
+        def on_graph_scroll(event):
+            if event.inaxes != self.ax:
+                return
+            xlim = self.ax.get_xlim()
+            ylim = self.ax.get_ylim()
+            xc = (xlim[0] + xlim[1]) / 2
+            yc = (ylim[0] + ylim[1]) / 2
+            scale = 0.8 if event.button == 'up' else 1.25
+            self._graph_zoom_level /= scale
+            xw = (xlim[1] - xlim[0]) * scale / 2
+            yw = (ylim[1] - ylim[0]) * scale / 2
+            self.ax.set_xlim(xc - xw, xc + xw)
+            self.ax.set_ylim(yc - yw, yc + yw)
+            # 同步缩放节点圆圈大小和标签字号
+            new_size = self._graph_base_node_size * (self._graph_zoom_level ** 2)
+            for coll in self._graph_node_collections:
+                coll.set_sizes([new_size] * len(coll.get_offsets()))
+            new_font = self._graph_base_font_size * self._graph_zoom_level
+            for txt in self._graph_label_texts.values():
+                txt.set_fontsize(new_font)
+            if self._graph_edge_collection:
+                self._graph_edge_collection.set_linewidths(
+                    [self._graph_base_line_width * self._graph_zoom_level])
+            self.canvas.draw_idle()
+        
+        def on_graph_press(event):
+            if event.inaxes != self.ax or event.button != 3:
+                return
+            self._graph_drag_data = {'x': event.xdata, 'y': event.ydata}
+        
+        def on_graph_motion(event):
+            if not self._graph_drag_data or event.inaxes != self.ax or event.button != 3:
+                return
+            dx = self._graph_drag_data['x'] - event.xdata
+            dy = self._graph_drag_data['y'] - event.ydata
+            xlim = self.ax.get_xlim()
+            ylim = self.ax.get_ylim()
+            self.ax.set_xlim(xlim[0] + dx, xlim[1] + dx)
+            self.ax.set_ylim(ylim[0] + dy, ylim[1] + dy)
+            self.canvas.draw_idle()
+        
+        def on_graph_release(event):
+            self._graph_drag_data = {}
+        
+        self.fig.canvas.mpl_connect('scroll_event', on_graph_scroll)
+        self.fig.canvas.mpl_connect('button_press_event', on_graph_press)
+        self.fig.canvas.mpl_connect('motion_notify_event', on_graph_motion)
+        self.fig.canvas.mpl_connect('button_release_event', on_graph_release)
 
         # ---------- 底部状态栏 ----------
         self.status_var = tk.StringVar()
@@ -510,23 +581,85 @@ class App:
             if u not in valid_users:
                 continue
             for v in sorted(self.graph.get_neighbors(u), key=lambda x: (0, int(str(x))) if str(x).isdigit() else (1, str(x))):
-                # 只有双方都是合法认证实体且边不存在时，渲染关系
                 if v in valid_users and not G.has_edge(u, v):
                     G.add_edge(u, v)
 
-        # 获取节点标签
         labels = nx.get_node_attributes(G, 'label')
+        total_nodes = len(G.nodes())
         
-        # 此时 G 中的节点按序插入，字典底层有序。只要 seed 固定，布局永远固定。
-        pos = nx.spring_layout(G, seed=42)
+        # --- 自适应视觉参数：根据节点规模动态调整 ---
+        node_size = max(250, 800 - total_nodes * 12)
+        label_font_size = max(7, 10 - total_nodes // 15)
+        edge_alpha = max(0.4, 0.8 - total_nodes * 0.005)
+        spring_k = max(0.3, 0.8 - total_nodes * 0.01)
         
-        # 绘制图架构
-        nx.draw_networkx_nodes(G, pos, ax=self.ax, node_color='#7EB6FF', edgecolors='#4A90E2', node_size=800, alpha=0.9)
-        nx.draw_networkx_edges(G, pos, ax=self.ax, edge_color='#A6C8FF', width=1.5)
-        nx.draw_networkx_labels(G, pos, labels, ax=self.ax, font_size=9, font_family='Microsoft YaHei')
+        # --- 智能分层布局：主网居中舒展 + 孤岛外环固定 ---
+        import math
+        pos = {}
+        components = list(nx.connected_components(G))
+        components.sort(key=len, reverse=True)
+        
+        main_nodes = set()
+        isolated_nodes = []
+        
+        if components:
+            main_nodes = components[0]
+            main_graph = G.subgraph(main_nodes)
+            main_pos = nx.spring_layout(main_graph, seed=42, k=spring_k, iterations=80)
+            pos.update(main_pos)
+            
+            for comp in components[1:]:
+                isolated_nodes.extend(list(comp))
+                
+            if isolated_nodes:
+                num_iso = len(isolated_nodes)
+                radius = 1.35
+                for i, node in enumerate(isolated_nodes):
+                    angle = 2 * math.pi * i / num_iso - math.pi / 2
+                    pos[node] = (radius * math.cos(angle), radius * math.sin(angle))
+        else:
+            pos = nx.spring_layout(G, seed=42)
+        
+        # --- 分层渲染：主网与孤岛使用不同视觉风格 ---
+        main_list = [n for n in G.nodes() if n in main_nodes]
+        iso_list = [n for n in G.nodes() if n in isolated_nodes]
+        self._graph_node_collections = []
+        self._graph_base_node_size = node_size
+        self._graph_zoom_level = 1.0
+        
+        # 主网络节点：蓝色系
+        if main_list:
+            c1 = nx.draw_networkx_nodes(G, pos, nodelist=main_list, ax=self.ax,
+                                        node_color='#7EB6FF', edgecolors='#4A90E2',
+                                        node_size=node_size, alpha=0.9)
+            if c1:
+                self._graph_node_collections.append(c1)
+        # 孤岛节点：橙红醒目色，一眼就能区分
+        if iso_list:
+            c2 = nx.draw_networkx_nodes(G, pos, nodelist=iso_list, ax=self.ax,
+                                        node_color='#FFAB91', edgecolors='#E64A19',
+                                        node_size=node_size, alpha=0.85)
+            if c2:
+                self._graph_node_collections.append(c2)
+        
+        # 连接线：半透明防止视觉混乱
+        edge_coll = nx.draw_networkx_edges(G, pos, ax=self.ax, edge_color='#A6C8FF',
+                                            width=1.5, alpha=edge_alpha)
+        self._graph_edge_collection = edge_coll
+        self._graph_base_line_width = 1.5
+        # 标签（保存文本对象以供缩放时同步调整字号）
+        self._graph_label_texts = nx.draw_networkx_labels(
+            G, pos, labels, ax=self.ax,
+            font_size=label_font_size, font_family='Microsoft YaHei')
+        self._graph_base_font_size = label_font_size
         
         self.ax.set_axis_off()
         self.canvas.draw()
+
+    def _reset_graph_view(self):
+        """重置图谱视图到初始全景状态"""
+        self.draw_graph()
+        self.status_var.set("图谱视图已重置")
 
     def on_combo_select(self, event):
         # 选中目标后不再截断文字，保留 "ID - 姓名" 的全称美观展示
@@ -673,9 +806,9 @@ class App:
     def show_add_user_dialog(self):
         dialog = tk.Toplevel(self.r)
         dialog.title("添加新用户")
-        dialog.minsize(400, 420)
+        dialog.minsize(380, 280)
         dialog.configure(bg='#F0F6FB')
-        dialog.grab_set() # 模态窗口
+        dialog.grab_set()
         
         # 自动计算下一个有效 ID
         all_keys = self.hash_table.get_all_keys()
@@ -699,11 +832,11 @@ class App:
         entry_name = tk.Entry(dialog, width=20)
         entry_name.grid(row=1, column=1, padx=10, pady=10)
         
-        tk.Label(dialog, text="兴趣标签 (纸片):", bg='#F0F6FB').grid(row=2, column=0, padx=10, pady=10, sticky=tk.NE)
+        tk.Label(dialog, text="兴趣标签:", bg='#F0F6FB').grid(row=2, column=0, padx=10, pady=10, sticky=tk.NE)
         ip = InterestPanel(dialog)
         ip.grid(row=2, column=1, padx=10, pady=10, sticky=tk.EW)
         
-        tk.Label(dialog, text="直接好友 (纸片):", bg='#F0F6FB').grid(row=3, column=0, padx=10, pady=10, sticky=tk.NE)
+        tk.Label(dialog, text="直接好友:", bg='#F0F6FB').grid(row=3, column=0, padx=10, pady=10, sticky=tk.NE)
         fp = FriendPanel(
             dialog, candidates=self.global_user_list,
             on_combo_keyrelease=self.on_combo_keyrelease
@@ -853,7 +986,7 @@ class App:
     def show_about(self):
         messagebox.showinfo(
             "关于", 
-            "社交网络分析及智能推荐系统\n\n作者：https://github.com/ywtiny/Social-Network-System\n联系邮箱：ywtiny@outlook.com"
+            "社交网络分析及智能推荐系统\n\n仓库地址：https://github.com/ywtiny/Social-Network-System\n联系邮箱：ywtiny@outlook.com"
         )
 
     def adjust_font_size(self, delta):
@@ -872,6 +1005,18 @@ class App:
             style.configure(".", font=("Microsoft YaHei", self.current_font_size))
             style.configure("TButton", font=("Microsoft YaHei", self.current_font_size))
             style.configure("TLabel", font=("Microsoft YaHei", self.current_font_size))
+            style.configure("TCombobox", font=("Microsoft YaHei", self.current_font_size))
+            style.configure("TLabelframe.Label", font=("Microsoft YaHei", self.current_font_size, "bold"))
+            
+            # 4. 逐一击穿 9 个独立配色按钮的子类样式（它们有独立的 font 声明，不会继承父类）
+            for i in range(1, 10):
+                style.configure(f"Btn{i}.TButton", font=("Microsoft YaHei", self.current_font_size))
+            
+            # 5. 直接对搜索框 Combobox 实例设置字体（ttk Style 无法穿透到输入区文字）
+            combo_font = ("Microsoft YaHei", self.current_font_size)
+            self.entry_u1.configure(font=combo_font)
+            self.combo_target.configure(font=combo_font)
+            self.r.option_add("*TCombobox*Listbox.font", combo_font)
             
             self.status_var.set(f"系统设置: 全局字体大小已统一调节至 {self.current_font_size}")
 
