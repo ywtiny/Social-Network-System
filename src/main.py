@@ -694,9 +694,10 @@ class App:
             
             for fid in res:
                 f_info = self.hash_table.get(fid)
+                if not f_info:
+                    continue
                 f_name = f_info['name']
                 f_ints = f_info['interests'].replace(";", ", ")
-                # 计算简单亲密度 (这里为了匹配格式做个加权模拟展示)
                 sim = int(algo.get_interest_similarity(self.hash_table.get(uid)['interests'], f_info['interests']) * 10) + 1
                 self.out(f"ID: {fid:>3} | 姓名: {f_name:<4} | 亲密度: {sim} | 兴趣: {f_ints}")
                 
@@ -716,6 +717,8 @@ class App:
             
             for fid in res:
                 f_info = self.hash_table.get(fid)
+                if not f_info:
+                    continue
                 f_name = f_info['name']
                 f_ints = f_info['interests'].replace(";", ", ")
                 f_ints_set = set(f_info['interests'].split(";"))
@@ -771,7 +774,11 @@ class App:
                     self.out(f"结果: 两人之间没有任何图结构连通！[无社交关联]")
                 else:
                     self.out(f"最短社交距离: {dist}")
-                    path_names = [f"[{pid} {self.hash_table.get(pid)['name']}]" for pid in path]
+                    path_names = []
+                    for pid in path:
+                        p_info = self.hash_table.get(pid)
+                        p_name = p_info['name'] if p_info else '未知'
+                        path_names.append(f"[{pid} {p_name}]")
                     self.out(f"探测连通路径: {' -> '.join(path_names)}")
                 self.status_var.set("计算完成: 社交距离")
 
