@@ -9,11 +9,7 @@ from data_structure.adjacency_list import Graph
 from utils.data_reader import load_all_data, save_all_data
 import algorithm.algorithms as algo
 
-# ⚠️⚠️⚠️ 合规性声明 ⚠️⚠️⚠️
-# 本项目的全部图数据结构（邻接表）与核心算法（BFS、最短路径、推荐引擎）
-# 均由 data_structure/ 与 algorithm/ 目录下的自研代码从零实现，绝无调用任何第三方图库。
-# 下方引入的 networkx 仅用于扩展功能「网络图谱可视化」中计算节点在画布上的 XY 坐标排版，
-# 以及调用其绘图接口渲染节点与边的外观，不涉及任何图遍历或算法逻辑。
+# 引入 networkx 仅用于网络图谱可视化中计算节点在画布上的坐标排版和渲染，不涉及图遍历逻辑
 import networkx as nx
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
@@ -429,10 +425,8 @@ class App:
         except AttributeError:
             pass
 
-    # ⚠️ 注意：此函数仅借助 networkx 进行「画布坐标计算」与「节点/边的渲染绘制」，
-    # 所有图数据结构与算法逻辑均来自 data_structure/ 目录下的自研邻接表，绝非违规调用。
     def draw_graph(self):
-        """利用 NetworkX 提取自定义邻接图结构并渲染"""
+        """利用 NetworkX 计算节点坐标并渲染自定义图结构"""
         self.ax.clear()
         
         G = nx.Graph()
