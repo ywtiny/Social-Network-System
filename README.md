@@ -179,7 +179,7 @@ const inAdj:  Map<string, Set<string>> = new Map();  // 入边（谁调用 A）
 
 ---
 
-## 🎨 UI 特性（advanced 分支）
+## 🎨 UI 特性（feat/ui-panels 分支）
 
 - **可拖拽宽度面板**：左侧 Sidebar（160~400 px）、爆炸半径右侧快选栏（120~480 px）均可拖拽调整
 - **图方向切换**：节点点击后可在「全部 / 仅下游 / 仅上游」三种高亮模式间切换
@@ -197,9 +197,11 @@ const inAdj:  Map<string, Set<string>> = new Map();  // 入边（谁调用 A）
 | 分支 | 说明 |
 |------|------|
 | `main` | 稳定基础版本（用户社交网络场景） |
-| `advanced` | 微服务分析商业大屏（核心重构版本） |
-| `advanced/*` | 功能迭代子分支（不影响 advanced 主线） |
+| `advanced` | 微服务分析大屏结构（无本分支附加特性） |
+| `feat/*` | 功能迭代子分支（当前 `feat/ui-panels`） |
 | `backup-main` | main 分支备份 |
+
+> Git 不允许同时存在 `advanced` 和 `advanced/xxx` 分支（ref 命名空间冲突），功能子分支统一使用 `feat/` 前缀。
 
 ---
 
