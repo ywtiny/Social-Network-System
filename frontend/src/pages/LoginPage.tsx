@@ -1,8 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
-    const { login, register } = useAuth();
+    const { login, register, isAuthenticated } = useAuth();
+    const navigate = useNavigate();
+
+    // 已登录状态访问 /login → 直接跳回主页
+    useEffect(() => {
+        if (isAuthenticated) navigate('/', { replace: true });
+    }, [isAuthenticated, navigate]);
     const [mode, setMode] = useState<'login' | 'register'>('login');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -30,6 +37,7 @@ export default function LoginPage() {
                 setConfirmPwd('');
             } else {
                 await login(username, password);
+                navigate('/', { replace: true });
             }
         } catch (err: any) {
             setError(err.response?.data?.message || err.message || '操作失败');
@@ -128,8 +136,8 @@ export default function LoginPage() {
                     {/* 提交按钮 */}
                     <button type="submit" disabled={loading}
                         className={`w-full mt-6 py-3.5 rounded-xl text-sm font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${mode === 'login'
-                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25'
-                                : 'bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 text-white shadow-violet-500/25'
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-blue-500/25'
+                            : 'bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 text-white shadow-violet-500/25'
                             } disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]`}>
                         {loading && <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>}
                         {mode === 'login' ? '登录系统' : '注册账号'}
