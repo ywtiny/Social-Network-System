@@ -198,8 +198,10 @@ const inAdj:  Map<string, Set<string>> = new Map();  // 入边（谁调用 A）
 |------|------|
 | `main` | 稳定基础版本（用户社交网络场景） |
 | `advanced` | 微服务分析商业大屏（核心重构版本） |
-| `advanced/*` | 功能迭代子分支（不影响 advanced 主线） |
+| `feat/*` | 功能迭代子分支，例如 `feat/ui-panels` |
 | `backup-main` | main 分支备份 |
+
+> Git 不允许同时存在 `advanced` 和 `advanced/xxx` 分支（ref 命名空间冲突），功能子分支统一使用 `feat/` 前缀。
 
 ---
 
