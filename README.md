@@ -1,84 +1,113 @@
-# SocialFlow: Enterprise Social Network Analytics & Recommendation Engine
+# SocialFlow · 社交网络图谱分析系统
 
-## 项目概述
-**SocialFlow** 是一个面向海量用户的高性能社交网络图谱分析与智能推荐系统。基于底层自主研发的无锁并发安全图结构、零碰撞哈希表与增量更新优先队列（MinHeap），本系统能够在不依赖重型图数据库的情况下，实现毫秒级的社交关系网络解算与画像打分。
+> 2024 级数据结构课程设计 — 基于图论算法与自定义数据结构的社交网络分析与智能推荐系统
 
-系统原生支持社交图谱的一度/二度人脉穿透探测、基于广度优先的最短交集距离推断，以及基于兴趣分型与 Jaccard 相交关联度的 Top-K 个性化好友智能推荐引擎。
+## ✨ 功能总览
 
-**核心技术栈**：
-- **架构基础**：Python 3.8+ (核心计算引擎脱离第三方黑盒库，实现100%自主可控)
-- **图形流控系统**：自主二次封装的流式布局 GUI 交互总控台 (零外部依赖方案)
-- **视觉映射渲染**：原生级接入 `networkx` 及 `matplotlib` 实现强力弹簧算法（Spring Layout）物理引擎视觉呈现。
+| 模块 | 功能 | 核心算法 |
+|------|------|----------|
+| 📊 数据概览 | 系统统计仪表盘（节点数、边数、网络密度、孤立节点） | 图遍历统计 |
+| 🕸️ 图谱可视化 | 力导向布局渲染、节点点击高亮邻居、拖拽缩放 | Force-Directed Layout |
+| 🔍 路径分析 | 任意两用户间最短社交路径查询 | **BFS 广度优先搜索** |
+| 🔗 关系探索 | 一度好友 / 二度人脉展示、实时建边断边 | **BFS 2-Hop 遍历** |
+| 🤝 好友推荐 | 基于社交拓扑 + 兴趣画像的 Top-K 推荐 | **Jaccard 相似度 + FoF** |
+| 👤 实体管理 | 用户 CRUD、按度数/UID 排序、兴趣标签编辑 | 哈希表 + 邻接表 |
+| 🔎 全域搜索 | 模糊搜索、结果联想、点击聚焦图谱节点 | 线性遍历匹配 |
 
----
+## 🏗️ 技术栈
 
-## 快速部署部署
-
-### 生产环境与依赖项
-本系统已在 Python 3.7+ 的 x64/ARM 架构上完成跨平台回归测试。运行该中台系统前需要安装底层视觉渲染计算依赖：
-
-```bash
-git clone <repository_url>
-cd SocialFlow
-pip install -r requirements.txt
+```
+前端: React 19 + TypeScript + TailwindCSS + AntV/G6 (图可视化)
+后端: Express + TypeScript + better-sqlite3 (内嵌式 SQLite)
+运行: tsx (TypeScript 即时运行) + Vite (前端开发服务)
 ```
 
-### 服务启动
-进入到核心源码目录，启动系统总控中台调度系统。系统自带数据容错装载恢复挂载保护：
+## 📁 项目结构
 
-```bash
-python src/main.py
+```
+├── backend/                   # 后端服务
+│   ├── algorithm/
+│   │   └── GraphEngine.ts     # 核心图引擎（BFS/FoF/Jaccard/CRUD）
+│   ├── db/
+│   │   └── init.ts            # SQLite 数据库初始化 & 种子数据
+│   └── server.ts              # Express REST API 服务
+├── frontend/                  # 前端应用
+│   └── src/
+│       ├── components/        # 组件（侧边栏/导航/图谱/用户面板/统计卡）
+│       ├── pages/             # 页面（仪表盘/实体管理/路径分析/关系探索）
+│       └── App.tsx            # 路由入口
+├── src/                       # Python 原版算法（参考实现）
+│   ├── algorithm/             # BFS/推荐算法
+│   ├── data_structure/        # 自定义图/哈希表/最小堆
+│   └── main.py                # CLI 交互入口
+└── data/                      # 测试数据集
 ```
 
-终端启动后，SocialFlow 底层调度引擎将自动装载离线存储网数据节点，构建百万级寻呼网络模型。
+## 🚀 快速启动
 
----
+### 前置条件
+- Node.js ≥ 18
+- npm ≥ 8
 
-## 核心企业级架构模块
+### 安装依赖
 
-### 1. 高吞吐量数据链路架构
-- **Graph 拓扑基类**：系统彻底摒弃高冗余的邻接矩阵二维数组，深层重构为基于字典与集合(`dict(set)`) 映射簇的无向图邻接表。不仅消弭了海量稀疏图结构引发的内存雪崩，更为复杂图计算赋予了 O(1) 级别的节点查询边界。
-- **自定义 Hash 计算引擎**：自研基于链地址法（Separate Chaining）对抗数据哈希碰撞。确保千万级并发增量吞吐时的用户元信息映射稳定，实现 O(1) 数据触达。
-- **非易失性流控落盘模块**：内置原子级并发落地控制器，实现内存图谱变异到持久化文件（CSV/TXT）的强一致性热备降级双向绑定绑定。
+```powershell
+# 后端
+cd backend; npm install
 
-### 2. 核心推荐与寻路计算中心
-- **穿透式维系拓展(一/二度探测)**：抛弃暴力历遍扫描锁死。通过轻量化 BFS 层级截断推演，干净剔除回环节点与已覆盖一度关系，实现去重率 100% 的极速隐性社交网络探视。
-- **精准极短社交链寻呼**：突破列表 O(N) 左出列性能禁锢，采用双端环形缓冲队列计算全球任意两端节点的社交跳板极小距离，并逆向反演最短引荐路径网。
-- **高维画像智能融合 Top-K 扩列引擎**：
-  采用自建带 `sift_up/sift_down` 堆排序平衡算子的**定值最小二叉堆 (MinHeap)** 控制核心推荐资源。
-  独创的多模推荐权重公式：聚合共同好友覆盖度权值与基于标签散粒化的 Jaccard Similarity 集合相似打分算法过滤。避免 O(N log N) 的全量灾难式堆排序，以 O(N log K) 碾压式耗时实现最优好友输出推荐。
-
-### 3. 数据可视化监控与交互呈现
-- 搭载全异步渲染的 **Social-FlowFrame** 流式排版引擎。
-- 原创输入框键盘级钩挂的 **无边界拼音联想防抖过滤面板**。
-- 支持对接 matplotlib API 输出包含力导向聚类属性的全景式网状交感拓扑视图。
-
----
-
-## 项目组织架构矩阵
-
-```text
-SocialFlow/
-├─ data/                  # 持久化网络存储卷宗及离线数据库
-│  ├─ user_sample.csv     # 高维特征用户锚点数据
-│  └─ friend_sample.txt   # 全向关联图边集合
-├─ src/                   # 系统核心后端执行微服务
-│  ├─ data_structure/     # 底层架构容器隔离箱
-│  │  ├─ adjacency_list.py  # 图拓扑引擎
-│  │  ├─ hash_table.py      # 元数据拉链哈希桶
-│  │  └─ heap.py            # 高维分数 Top-K 最小堆过滤组件
-│  ├─ algorithm/          # 计算矩阵密集处理簇
-│  │  └─ algorithms.py      # BFS路径还原及Jaccard智能算法核心计算引擎
-│  ├─ utils/              # 标准服务调度包
-│  │  └─ data_reader.py     # 热备防回滚离线数据装盘解析器
-│  └─ main.py             # 核心 GUI 调度路由总枢纽
-└─ README.md              # 架构说明与快速启动大纲
+# 前端
+cd frontend; npm install
 ```
 
----
+### 初始化数据库
 
-## 开源协议 (License)
-本项目基于 **MIT License** 开源发布。
+```powershell
+cd backend
+npx tsx db/init.ts
+```
 
-允许任何人出于任何目的对本项目的源代码进行使用、修改、分发及商业化部署，只需在软件副本中保留此版权声明。
-Welcome to fork and contribute!
+### 启动服务
+
+```powershell
+# 终端 1: 后端 API (端口 8000)
+cd backend
+npx tsx server.ts
+
+# 终端 2: 前端开发服务 (端口 5173)
+cd frontend
+npm run dev
+```
+
+打开浏览器访问 `http://localhost:5173`
+
+## 🧠 核心算法说明
+
+### BFS 最短路径
+基于广度优先搜索，在无权图中计算任意两节点间的最短跳数与完整路径序列。时间复杂度 O(V+E)。
+
+### FoF 好友推荐
+Friend-of-Friend 算法，仅遍历目标用户的二度人脉候选池（O(D²)），结合 Jaccard 交并比计算拓扑相似度，叠加兴趣语义加权，通过最小堆维护 Top-K 结果。
+
+### 一度 / 二度人脉
+一度人脉直接读取邻接表，二度人脉通过 BFS 限深 2 层遍历，去重排除自身和一度好友，统计共同好友数排序。
+
+## 📡 API 速查
+
+| 方法 | 路径 | 用途 |
+|------|------|------|
+| GET | `/api/system/overview` | 系统概览统计 |
+| GET | `/api/network/graph` | 图谱数据 |
+| GET | `/api/users?q=&page=&sortBy=&sortDir=` | 用户搜索/分页 |
+| GET | `/api/users/:uid/recommend` | 好友推荐 |
+| GET | `/api/users/:uid/friends` | 一度/二度人脉 |
+| GET | `/api/users/:uid/detail` | 用户详情 |
+| GET | `/api/path/:start/:end` | 最短路径 |
+| POST | `/api/users` | 创建用户 |
+| PUT | `/api/users/:uid` | 更新用户 |
+| DELETE | `/api/users/:uid` | 删除用户 |
+| POST | `/api/edges` | 创建边 |
+| DELETE | `/api/edges` | 删除边 |
+
+## 👥 团队
+
+2024 级数据结构课程设计项目组
