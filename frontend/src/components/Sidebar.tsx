@@ -53,17 +53,6 @@ export default function Sidebar({ width = 256 }: { width?: number }) {
                     </ul>
                 </div>
             </nav>
-
-            {/* Admin Profile */}
-            <div className="p-4 border-t border-border-light bg-stone-50/50 mt-auto">
-                <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors cursor-pointer border border-transparent hover:border-border-light hover:shadow-sm">
-                    <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Admin" alt="Admin" className="size-10 rounded-full border border-stone-200 bg-white" />
-                    <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-bold text-stone-800 truncate">Administrator</h3>
-                        <p className="text-xs text-text-secondary truncate mt-0.5 font-mono">admin@infra.ops</p>
-                    </div>
-                </div>
-            </div>
         </aside>
     );
 }
