@@ -1,35 +1,40 @@
 import express from 'express';
 import cors from 'cors';
+
 import {
     hydrateGraph,
     getSystemOverview,
     getNetworkGraph,
-    getUserRecommendations,
-    searchUsers,
+    getServiceRecommendations,
+    searchServices,
     addNode,
     addEdge,
     removeNode,
     removeEdge,
     getShortestPath,
-    getFirstDegree,
-    getSecondDegree,
+    getDirectDependencies,
+    getBlastRadius,
     updateNode,
-    getUserDetail
+    getServiceDetail,
 } from './algorithm/GraphEngine';
 
 const app = express();
 const PORT = 8000;
 
 app.use(cors());
-app.use(express.json()); // Essential for CRUD payload parsing
+app.use(express.json());
+
+// ============== Bootstrap ==============
+hydrateGraph();
 
 // ======================================
-// Original Visualization Display Routes (Read-only)
+// Phase 1 Read-Only APIs
 // ======================================
+
 app.get('/api/system/overview', (req, res) => {
     try {
-        const stats = getSystemOverview();
-        res.json({ code: 200, message: "OK", data: stats });
+        const data = getSystemOverview();
+        res.json({ code: 200, message: "OK", data });
     } catch (e: any) {
         res.status(500).json({ code: 500, message: e.message });
     }
@@ -44,11 +49,11 @@ app.get('/api/network/graph', (req, res) => {
     }
 });
 
-app.get('/api/users/:uid/recommend', (req, res) => {
+app.get('/api/services/:uid/recommend', (req, res) => {
     try {
         const uid = req.params.uid;
         const top_k = parseInt(req.query.top_k as string) || 6;
-        const recs = getUserRecommendations(uid, top_k);
+        const recs = getServiceRecommendations(uid, top_k);
         res.json({ code: 200, message: "OK", data: recs });
     } catch (e: any) {
         res.status(500).json({ code: 500, message: e.message });
@@ -56,11 +61,11 @@ app.get('/api/users/:uid/recommend', (req, res) => {
 });
 
 // ======================================
-// Phase 4 Restful CRUD Admin API (R/W)
+// CRUD APIs
 // ======================================
 
-// [R] Get all users (Search / Pagination)
-app.get('/api/users', (req, res) => {
+// [R] Get services (Search / Pagination)
+app.get('/api/services', (req, res) => {
     try {
         const keyword = (req.query.q as string) || "";
         const page = parseInt(req.query.page as string) || 1;
@@ -68,68 +73,63 @@ app.get('/api/users', (req, res) => {
         const sortBy = (req.query.sortBy as string) || "degree";
         const sortDir = (req.query.sortDir as string) || "desc";
 
-        const result = searchUsers(keyword, page, limit, sortBy, sortDir);
+        const result = searchServices(keyword, page, limit, sortBy, sortDir);
         res.json({ code: 200, message: "OK", data: result });
     } catch (e: any) {
         res.status(500).json({ code: 500, message: e.message });
     }
 });
 
-// [C] Add new entity node
-app.post('/api/users', (req, res) => {
+// [C] Create service node
+app.post('/api/services', (req, res) => {
     try {
         const { uid, name, properties } = req.body;
-        if (!uid || !name) return res.status(400).json({ code: 400, message: "Missed required fields: uid, name." });
-
-        const result = addNode(uid, name, properties);
-        res.json({ code: 200, message: "Node attached successfully", data: result });
+        const node = addNode(uid, name, properties);
+        res.json({ code: 201, message: "Service created", data: node });
     } catch (e: any) {
         res.status(400).json({ code: 400, message: e.message });
     }
 });
 
-// [C] Connect semantic edge
-app.post('/api/edges', (req, res) => {
-    try {
-        const { source, target } = req.body;
-        if (!source || !target) return res.status(400).json({ code: 400, message: "Require source and target." });
-
-        const result = addEdge(source, target);
-        res.json({ code: 200, message: "Edge fused successfully", data: result });
-    } catch (e: any) {
-        res.status(400).json({ code: 400, message: e.message });
-    }
-})
-
-// [D] Destroy an entity node (cascade removes all edges)
-app.delete('/api/users/:uid', (req, res) => {
+// [D] Delete service node
+app.delete('/api/services/:uid', (req, res) => {
     try {
         const uid = req.params.uid;
         const result = removeNode(uid);
-        res.json({ code: 200, message: "Node obliterated", data: result });
+        res.json({ code: 200, message: "Service removed", data: result });
     } catch (e: any) {
         res.status(400).json({ code: 400, message: e.message });
     }
 });
 
-// [D] Cut an edge between two nodes
-app.delete('/api/edges', (req, res) => {
+// [C] Create dependency edge
+app.post('/api/dependencies', (req, res) => {
     try {
         const { source, target } = req.body;
-        if (!source || !target) return res.status(400).json({ code: 400, message: "Require source and target." });
-        const result = removeEdge(source, target);
-        res.json({ code: 200, message: "Edge severed", data: result });
+        const edge = addEdge(source, target);
+        res.json({ code: 201, message: "Dependency created", data: edge });
     } catch (e: any) {
         res.status(400).json({ code: 400, message: e.message });
     }
-})
+});
+
+// [D] Delete dependency edge
+app.delete('/api/dependencies', (req, res) => {
+    try {
+        const { source, target } = req.body;
+        const result = removeEdge(source, target);
+        res.json({ code: 200, message: "Dependency removed", data: result });
+    } catch (e: any) {
+        res.status(400).json({ code: 400, message: e.message });
+    }
+});
 
 // ======================================
-// Phase 5 Path Analysis & Relation Discovery API
+// 调用链路追踪 & 爆炸半径评估
 // ======================================
 
-// [R] BFS Shortest Path between two nodes
-app.get('/api/path/:start/:end', (req, res) => {
+// [R] BFS 调用链路追踪
+app.get('/api/trace/:start/:end', (req, res) => {
     try {
         const { start, end } = req.params;
         const result = getShortestPath(start, end);
@@ -139,48 +139,52 @@ app.get('/api/path/:start/:end', (req, res) => {
     }
 });
 
-// [R] Get first and second degree friends
-app.get('/api/users/:uid/friends', (req, res) => {
+// [R] 直接依赖（上下游）
+app.get('/api/services/:uid/dependencies', (req, res) => {
     try {
         const uid = req.params.uid;
-        const first = getFirstDegree(uid);
-        const second = getSecondDegree(uid);
-        res.json({ code: 200, message: "OK", data: { first_degree: first, second_degree: second } });
+        const deps = getDirectDependencies(uid);
+        res.json({ code: 200, message: "OK", data: deps });
     } catch (e: any) {
         res.status(400).json({ code: 400, message: e.message });
     }
 });
 
-// [R] Get single user detail
-app.get('/api/users/:uid/detail', (req, res) => {
+// [R] 爆炸半径评估
+app.get('/api/services/:uid/blast-radius', (req, res) => {
     try {
         const uid = req.params.uid;
-        const detail = getUserDetail(uid);
+        const result = getBlastRadius(uid);
+        res.json({ code: 200, message: "OK", data: result });
+    } catch (e: any) {
+        res.status(400).json({ code: 400, message: e.message });
+    }
+});
+
+// [R] 单服务详情
+app.get('/api/services/:uid/detail', (req, res) => {
+    try {
+        const uid = req.params.uid;
+        const detail = getServiceDetail(uid);
         res.json({ code: 200, message: "OK", data: detail });
     } catch (e: any) {
         res.status(400).json({ code: 400, message: e.message });
     }
 });
 
-// [U] Update node info
-app.put('/api/users/:uid', (req, res) => {
+// [U] 更新服务信息
+app.put('/api/services/:uid', (req, res) => {
     try {
         const uid = req.params.uid;
         const { name, properties } = req.body;
         if (!name) return res.status(400).json({ code: 400, message: "Name is required." });
-        const result = updateNode(uid, name, properties || { interests: [] });
-        res.json({ code: 200, message: "Node updated", data: result });
+        const result = updateNode(uid, name, properties || { techStack: [], tier: "旁路服务" });
+        res.json({ code: 200, message: "Service updated", data: result });
     } catch (e: any) {
         res.status(400).json({ code: 400, message: e.message });
     }
-})
+});
 
-// ======================================
-// BOOTSTRAP
-// ======================================
 app.listen(PORT, () => {
-    console.log(`[SocialFlow Backend] Central Gateway spinning on http://localhost:${PORT}`);
-    // Boot up Data Engine into Memory synchronously
-    // By keeping everything in JS Engine Maps/Sets we bypass SQL latency in complex loops.
-    hydrateGraph();
+    console.log(`[ServiceGraph Backend] Topology API running on http://localhost:${PORT}`);
 });

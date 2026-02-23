@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as G6 from '@antv/g6';
 import axios from 'axios';
 
@@ -12,6 +12,10 @@ export default function NetworkGraph({ selectedUserId, onNodeSelect }: NetworkPr
     const graphInstance = useRef<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    // 方向模式：all(双向) | out(下游/出边) | in(上游/入边)
+    const [dirMode, setDirMode] = useState<'all' | 'out' | 'in'>('all');
+    const dirModeRef = useRef<'all' | 'out' | 'in'>('all');
+    const lastClickedRef = useRef<string | null>(null);
 
     // 将请求数据的逻辑抽离出，方便被全局重载事件调用
     const fetchGraphData = async () => {
@@ -60,12 +64,13 @@ export default function NetworkGraph({ selectedUserId, onNodeSelect }: NetworkPr
                     default: ['drag-canvas', 'zoom-canvas', 'drag-node'],
                 },
                 layout: {
-                    type: 'force',
+                    type: 'dagre',
+                    rankdir: 'LR',       // 左→右，网关层在左，数据层在右
+                    align: 'UL',
+                    nodesep: 28,         // 同层节点间距
+                    ranksep: 90,         // 层间距
                     preventOverlap: true,
-                    linkDistance: 350,
-                    nodeStrength: -800,
                     nodeSize: 52,
-                    alphaDecay: 0.02, // 延长物理退火过程
                 },
                 defaultNode: {
                     type: 'circle',
@@ -78,7 +83,14 @@ export default function NetworkGraph({ selectedUserId, onNodeSelect }: NetworkPr
                 },
                 defaultEdge: {
                     type: 'line',
-                    style: { stroke: '#e7e5e0', lineWidth: 1.5, endArrow: false },
+                    style: {
+                        stroke: '#c9c5bb',
+                        lineWidth: 1.2,
+                        endArrow: {
+                            path: 'M 0,0 L 8,4 L 8,-4 Z',
+                            fill: '#c9c5bb',
+                        },
+                    },
                 },
                 nodeStateStyles: {
                     hover: { fill: '#f5f2eb', stroke: '#8b8055', cursor: 'grab' },
@@ -99,14 +111,21 @@ export default function NetworkGraph({ selectedUserId, onNodeSelect }: NetworkPr
                 const nodeModel = item.getModel();
                 window.sessionStorage.setItem('SNA_FOCUS_UID', nodeModel.id);
 
-                // 收集邻居 ID
+                // 根据方向模式收集邻居 ID 和高亮边
                 const neighborIds = new Set<string>();
+                const highlightEdgeIds = new Set<string>();
+                const mode = dirModeRef.current;
                 const edges = g.getEdges();
                 edges.forEach((edge: any) => {
                     const em = edge.getModel();
-                    if (em.source === nodeModel.id) neighborIds.add(em.target);
-                    if (em.target === nodeModel.id) neighborIds.add(em.source);
+                    if (mode === 'out' || mode === 'all') {
+                        if (em.source === nodeModel.id) { neighborIds.add(em.target); highlightEdgeIds.add(em.id); }
+                    }
+                    if (mode === 'in' || mode === 'all') {
+                        if (em.target === nodeModel.id) { neighborIds.add(em.source); highlightEdgeIds.add(em.id); }
+                    }
                 });
+                lastClickedRef.current = nodeModel.id;
 
                 // 重置所有状态
                 g.getNodes().forEach((n: any) => g.clearItemStates(n, ['selected', 'neighbor', 'dim']));
@@ -124,9 +143,10 @@ export default function NetworkGraph({ selectedUserId, onNodeSelect }: NetworkPr
                     }
                 });
 
-                edges.forEach((edge: any) => {
+                const allEdges = g.getEdges();
+                allEdges.forEach((edge: any) => {
                     const em = edge.getModel();
-                    if (em.source === nodeModel.id || em.target === nodeModel.id) {
+                    if (highlightEdgeIds.has(em.id)) {
                         g.setItemState(edge, 'highlight', true);
                     } else {
                         g.setItemState(edge, 'dim', true);
@@ -212,7 +232,35 @@ export default function NetworkGraph({ selectedUserId, onNodeSelect }: NetworkPr
                         {loading ? "正在重排量子引力矩阵..." : "就绪，点击实体的圆点以接管控制。左键旋转，滚动缩放。"}
                     </p>
                 </div>
-                <div className="flex gap-2 pointer-events-auto">
+                <div className="flex gap-2 pointer-events-auto flex-wrap justify-end">
+                    {/* 方向切换三态按钮 */}
+                    <div className="flex rounded-lg border border-border-light overflow-hidden shadow-sm bg-white text-xs font-bold">
+                        {(['all', 'out', 'in'] as const).map((m) => (
+                            <button
+                                key={m}
+                                onClick={() => {
+                                    dirModeRef.current = m;
+                                    setDirMode(m);
+                                    // 如有已选节点则重新触发高亮
+                                    const uid = lastClickedRef.current;
+                                    if (uid && graphInstance.current) {
+                                        const item = graphInstance.current.findById(uid);
+                                        if (item) graphInstance.current.emit('node:click', { item });
+                                    }
+                                }}
+                                className={`px-3 py-2 transition-colors flex items-center gap-1 ${dirMode === m
+                                    ? 'bg-primary text-white'
+                                    : 'text-stone-500 hover:bg-stone-50'
+                                    }`}
+                                title={m === 'all' ? '显示全部相邻边' : m === 'out' ? '只显示出边（下游依赖）' : '只显示入边（上游调用方）'}
+                            >
+                                <span className="material-symbols-outlined text-[15px]">
+                                    {m === 'all' ? 'device_hub' : m === 'out' ? 'call_split' : 'call_merge'}
+                                </span>
+                                {m === 'all' ? '全部' : m === 'out' ? '下游' : '上游'}
+                            </button>
+                        ))}
+                    </div>
                     <button onClick={() => {
                         graphInstance.current?.fitView();
                         graphInstance.current?.zoomTo(0.8, { x: 0, y: 0 }, true, { duration: 500 });

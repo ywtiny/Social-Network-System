@@ -36,9 +36,9 @@ export default function Dashboard() {
     const [systemOverview, setSystemOverview] = useState<any>(null);
 
     const [selectedUser, setSelectedUser] = useState<any>({
-        id: "node_1",
-        label: "张三",
-        properties: { interests: ["编程", "架构"] }
+        id: "gw_main",
+        label: "API-Gateway",
+        properties: { techStack: ["Nginx", "OpenResty"], tier: "网关层", desc: "主入口网关" }
     });
 
     useEffect(() => {
@@ -54,7 +54,7 @@ export default function Dashboard() {
                 <GraphErrorBoundary>
                     <React.Suspense fallback={
                         <div className="flex-[3] bg-surface-light border border-border-light rounded-xl flex items-center justify-center">
-                            <span className="text-primary font-bold animate-pulse">正在加载图谱渲染引擎...</span>
+                            <span className="text-primary font-bold animate-pulse">正在加载微服务拓扑引擎...</span>
                         </div>
                     }>
                         <NetworkGraph

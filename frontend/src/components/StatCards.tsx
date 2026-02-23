@@ -4,40 +4,40 @@ export default function StatCards({ data }: { data: any }) {
     if (!data) return <div className="animate-pulse h-24 bg-stone-100 rounded-xl mb-6"></div>;
 
     // 对齐最新后端数据结构: 
-    // { "total_users": 65, "total_edges": 142, "isolated_nodes": 3, "network_density": 0.06 }
+    // { "total_services": 42, "total_dependencies": 76, "isolated_nodes": 0, "network_density": 0.04 }
     const cards = [
         {
-            title: "全库实体规模",
-            value: (data.total_users || 0).toLocaleString(),
-            trend: "+新增捕获",
-            icon: "groups",
+            title: "服务总量",
+            value: (data.total_services || 0).toLocaleString(),
+            trend: "服务注册",
+            icon: "dns",
             colorClass: "text-success bg-success/10",
             iconBg: "bg-primary/10 text-primary group-hover:bg-primary",
             trendIcon: "arrow_upward"
         },
         {
-            title: "拓扑二度连边",
-            value: (data.total_edges || 0).toLocaleString(),
-            trend: "持续蔓延",
-            icon: "share",
+            title: "依赖关系数",
+            value: (data.total_dependencies || 0).toLocaleString(),
+            trend: "有向调用",
+            icon: "call_split",
             colorClass: "text-success bg-success/10",
             iconBg: "bg-purple-600/10 text-purple-700 group-hover:bg-purple-600",
             trendIcon: "arrow_upward"
         },
         {
-            title: "微观网络密度",
+            title: "拓扑密度",
             value: data.network_density ? (data.network_density * 100).toFixed(2) + '%' : "0%",
-            trend: "聚集因子",
+            trend: "耦合因子",
             icon: "bubble_chart",
             colorClass: "text-text-secondary bg-stone-100",
             iconBg: "bg-sky-600/10 text-sky-700 group-hover:bg-sky-600",
             trendIcon: ""
         },
         {
-            title: "孤城节点判定",
+            title: "孤立服务",
             value: (data.isolated_nodes || 0).toLocaleString(),
-            trend: "异常离散",
-            icon: "person_off",
+            trend: "未接入",
+            icon: "cloud_off",
             colorClass: "text-danger bg-danger/10",
             iconBg: "bg-orange-600/10 text-orange-700 group-hover:bg-orange-600",
             trendIcon: "warning"

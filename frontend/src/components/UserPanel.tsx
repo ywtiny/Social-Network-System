@@ -9,7 +9,7 @@ export default function UserPanel({ currentUser }: { currentUser: any }) {
     useEffect(() => {
         if (!currentUser) return;
         setRecommends([]); // 重装载动画
-        axios.get(`http://localhost:8000/api/users/${currentUser.id}/recommend?top_k=6`)
+        axios.get(`http://localhost:8000/api/services/${currentUser.id}/recommend?top_k=6`)
             .then(res => setRecommends(res.data.data))
             .catch(err => console.error("推演推荐失败", err));
     }, [currentUser]);
@@ -18,7 +18,7 @@ export default function UserPanel({ currentUser }: { currentUser: any }) {
         setIsAdding(prev => ({ ...prev, [targetId]: true }));
         try {
             // 真实双写 API: 内存与 SQLite 双贯穿
-            const res = await axios.post('http://localhost:8000/api/edges', {
+            const res = await axios.post('http://localhost:8000/api/dependencies', {
                 source: currentUser.id,
                 target: targetId,
                 weight: 1
@@ -33,7 +33,7 @@ export default function UserPanel({ currentUser }: { currentUser: any }) {
                     window.dispatchEvent(new CustomEvent('SNA_FOCUS_NODE', { detail: { id: targetId } }));
                 }, 1000);
             } else {
-                alert("连接建立遭遇阻碍: " + res.data.message);
+                alert("依赖建立失败: " + res.data.message);
             }
         } catch (error: any) {
             console.error("建边异常:", error);
@@ -47,39 +47,55 @@ export default function UserPanel({ currentUser }: { currentUser: any }) {
         return (
             <div className="flex-[1.2] flex items-center justify-center bg-surface-light border border-dashed border-border-light rounded-xl shadow-inner text-stone-400 h-full min-w-[320px]">
                 <div className="text-center px-6">
-                    <span className="material-symbols-outlined text-[48px] opacity-20 mb-4 block">hub</span>
-                    等待神经漫游...<br /><span className="text-xs">请在左侧点击任意节点，或使用顶边栏进行靶向定标</span>
+                    <span className="material-symbols-outlined text-[48px] opacity-20 mb-4 block">account_tree</span>
+                    点击拓扑图中任意服务节点<br /><span className="text-xs">查看该服务的调用关系与依赖推荐</span>
                 </div>
             </div>
         )
     }
 
-    const interests = currentUser.properties?.interests || [];
+    const techStack: string[] = currentUser.properties?.techStack || [];
+    const tier: string = currentUser.properties?.tier || '';
+    const desc: string = currentUser.properties?.desc || '';
 
     return (
         <div className="flex-[1.2] flex flex-col gap-4 min-w-[320px] max-w-sm shrink-0">
-            {/* 顶窗：个人档案信息 */}
+            {/* 顶窗：服务档案信息 */}
             <div className="bg-surface-light border border-border-light rounded-xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-4 mb-5">
-                    <div className="size-16 rounded-full border-2 border-primary p-0.5">
-                        <div className="w-full h-full rounded-full bg-cover bg-center shadow-inner transition-all hover:scale-105" style={{ backgroundImage: `url('https://api.dicebear.com/7.x/notionists/svg?seed=${currentUser.id}')` }}></div>
+                    <div className="size-16 rounded-xl border-2 border-primary/30 bg-primary/5 flex items-center justify-center shadow-inner">
+                        <span className="material-symbols-outlined text-[32px] text-primary">
+                            {tier.includes('网关') ? 'router' :
+                                tier.includes('BFF') ? 'hub' :
+                                    tier.includes('核心') ? 'dns' :
+                                        tier.includes('中间件') ? 'settings_ethernet' :
+                                            tier.includes('数据') ? 'storage' :
+                                                tier.includes('运维') ? 'monitor_heart' : 'cloud'}
+                        </span>
                     </div>
                     <div>
                         <h2 className="text-xl font-bold text-stone-800">{currentUser.label}</h2>
-                        <p className="text-xs text-text-secondary font-mono mt-1 bg-stone-100 inline-block px-1.5 py-0.5 rounded">uid: {currentUser.id}</p>
+                        <p className="text-[10px] text-text-secondary font-mono mt-1 bg-stone-100 inline-block px-1.5 py-0.5 rounded">id: {currentUser.id}</p>
                     </div>
                 </div>
+                {tier && (
+                    <div className="mb-3">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary">服务层级</span>
+                        <span className="ml-2 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">{tier}</span>
+                    </div>
+                )}
+                {desc && <p className="text-xs text-stone-500 mb-3 leading-relaxed">{desc}</p>}
                 <div className="space-y-4">
                     <div>
                         <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-2 flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">psychology</span>
-                            深度语义提取集
+                            <span className="material-symbols-outlined text-[14px]">code</span>
+                            技术栈
                         </p>
                         <div className="flex flex-wrap gap-1.5">
-                            {interests.length > 0 ? interests.map((tag: string, i: number) => (
+                            {techStack.length > 0 ? techStack.map((tag: string, i: number) => (
                                 <span key={i} className="px-2 py-0.5 rounded-sm bg-stone-50 hover:bg-stone-100 text-stone-600 text-[11px] border border-border-light cursor-default transition-colors">{tag}</span>
                             )) : (
-                                <span className="text-xs text-stone-400 italic">缺失多维可解释性标签</span>
+                                <span className="text-xs text-stone-400 italic">暂无技术栈信息</span>
                             )}
                         </div>
                     </div>
@@ -91,14 +107,16 @@ export default function UserPanel({ currentUser }: { currentUser: any }) {
                 <div className="p-4 border-b border-border-light bg-stone-50/50 flex justify-between items-center shrink-0">
                     <h3 className="text-stone-800 font-bold text-sm flex items-center gap-2">
                         <span className="material-symbols-outlined text-warning text-[20px] animate-pulse">model_training</span>
-                        二度人脉关联模型发现
+                        相似服务推荐
                     </h3>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {recommends.map((rec: any, idx) => (
                         <div key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-white hover:bg-stone-50 border border-border-light hover:border-primary/30 transition-all group shadow-sm hover:shadow">
-                            <div className="size-10 rounded-full bg-cover bg-center flex-shrink-0" style={{ backgroundImage: `url('https://api.dicebear.com/7.x/notionists/svg?seed=${rec.uid}')` }}></div>
+                            <div className="size-10 rounded-lg bg-primary/8 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                                <span className="material-symbols-outlined text-[20px] text-primary/70">dns</span>
+                            </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-center mb-1">
                                     <h4 className="text-sm font-bold text-stone-800 truncate">{rec.name}</h4>
@@ -115,7 +133,7 @@ export default function UserPanel({ currentUser }: { currentUser: any }) {
                                 onClick={() => handleAddFriend(rec.uid, rec.name)}
                                 disabled={isAdding[rec.uid]}
                                 className="shrink-0 size-8 flex items-center justify-center text-primary bg-primary/5 hover:bg-primary/10 rounded-lg transition-colors disabled:opacity-50"
-                                title="物理桥接: 建立边缘关联"
+                                title="建立调用依赖"
                             >
                                 {isAdding[rec.uid] ? (
                                     <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>
@@ -128,7 +146,7 @@ export default function UserPanel({ currentUser }: { currentUser: any }) {
                     {recommends.length === 0 && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
                             <span className="material-symbols-outlined text-4xl text-stone-200 mb-2 animate-bounce">radar</span>
-                            <p className="text-xs text-stone-400">正在进行 Jaccard 分型演算预测...</p>
+                            <p className="text-xs text-stone-400">正在分析依赖拓扑相似度...</p>
                         </div>
                     )}
                 </div>

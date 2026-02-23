@@ -27,7 +27,7 @@ export default function TopNav() {
 
         const delayDebounceFn = setTimeout(() => {
             setIsSearching(true);
-            axios.get(`http://localhost:8000/api/users?q=${encodeURIComponent(searchTerm)}&limit=8`)
+            axios.get(`http://localhost:8000/api/services?q=${encodeURIComponent(searchTerm)}&limit=8`)
                 .then(res => {
                     setResults(res.data.data.items || []);
                     setShowDropdown(true);
@@ -67,7 +67,7 @@ export default function TopNav() {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         onFocus={() => searchTerm && setShowDropdown(true)}
-                        placeholder="开启全域漫游... (输入 ID 或人物姓名实现镜头秒级跃迁)"
+                        placeholder="搜索服务节点... (输入服务 ID 或名称定位拓扑位置)"
                         className="w-full bg-transparent pl-11 pr-4 py-2.5 text-sm text-stone-800 focus:outline-none placeholder-stone-400 font-medium tracking-wide"
                     />
                     <div className="absolute right-3 hidden sm:flex items-center gap-1 opacity-50 pointer-events-none">
@@ -79,18 +79,20 @@ export default function TopNav() {
                 {/* Dropdown Result Panel */}
                 {showDropdown && results.length > 0 && (
                     <div className="absolute top-full left-0 right-0 bg-white border-x border-b border-border-light rounded-b-xl shadow-lg mt-[1px] max-h-[300px] overflow-y-auto animate-in slide-in-from-top-2 z-50 divide-y divide-border-light text-sm">
-                        <div className="px-4 py-2 text-xs font-bold text-text-secondary bg-stone-50/80">超管全域降维打击 ({results.length})</div>
+                        <div className="px-4 py-2 text-xs font-bold text-text-secondary bg-stone-50/80">服务检索结果 ({results.length})</div>
                         {results.map((r, i) => (
                             <div key={i} onClick={() => handleSelectResult(r.id)} className="px-4 py-2.5 hover:bg-stone-50 cursor-pointer flex items-center justify-between group transition-colors">
                                 <div className="flex items-center gap-3">
-                                    <div className="size-8 rounded-full bg-cover bg-center border border-border-light" style={{ backgroundImage: `url('https://api.dicebear.com/7.x/notionists/svg?seed=${r.id}')` }}></div>
+                                    <div className="size-8 rounded-lg bg-stone-100 flex items-center justify-center border border-border-light">
+                                        <span className="material-symbols-outlined text-[16px] text-stone-400">dns</span>
+                                    </div>
                                     <div>
                                         <p className="font-bold text-stone-800">{r.label}</p>
                                         <p className="text-[10px] text-text-secondary font-mono">#{r.id}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[11px] font-mono bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded">星云引力级: {r.degree}</span>
+                                    <span className="text-[11px] font-mono bg-stone-100 text-stone-500 px-1.5 py-0.5 rounded">调用度: {r.degree}</span>
                                     <span className="material-symbols-outlined text-[16px] text-stone-300 group-hover:text-primary transition-colors">rocket_launch</span>
                                 </div>
                             </div>
@@ -108,7 +110,7 @@ export default function TopNav() {
                 <div className="w-px h-5 bg-border-light shrink-0"></div>
                 <button className="flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-stone-900 bg-white border border-border-light px-3 py-1.5 rounded-lg shadow-sm hover:shadow transition-all group">
                     <span className="material-symbols-outlined text-[18px] text-primary group-hover:rotate-12 transition-transform">help</span>
-                    支持工单
+                    运维日志
                 </button>
             </div>
         </header>
