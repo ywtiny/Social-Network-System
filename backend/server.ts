@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import { ensureAccountsTable, register, login, verifyToken } from './auth';
+import { authMiddleware, requireAdmin } from './authMiddleware';
 
 import {
     hydrateGraph,
@@ -26,6 +28,35 @@ app.use(express.json());
 
 // ============== Bootstrap ==============
 hydrateGraph();
+ensureAccountsTable();
+
+// ======================================
+// Auth APIs
+// ======================================
+
+app.post('/api/auth/register', (req, res) => {
+    try {
+        const { username, password, role } = req.body;
+        const user = register(username, password, role);
+        res.json({ code: 201, message: '注册成功', data: user });
+    } catch (e: any) {
+        res.status(400).json({ code: 400, message: e.message });
+    }
+});
+
+app.post('/api/auth/login', (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const result = login(username, password);
+        res.json({ code: 200, message: '登录成功', data: result });
+    } catch (e: any) {
+        res.status(401).json({ code: 401, message: e.message });
+    }
+});
+
+app.get('/api/auth/me', authMiddleware, (req, res) => {
+    res.json({ code: 200, message: 'OK', data: req.user });
+});
 
 // ======================================
 // Phase 1 Read-Only APIs
@@ -81,7 +112,7 @@ app.get('/api/services', (req, res) => {
 });
 
 // [C] Create service node
-app.post('/api/services', (req, res) => {
+app.post('/api/services', authMiddleware, (req, res) => {
     try {
         const { uid, name, properties } = req.body;
         const node = addNode(uid, name, properties);
@@ -92,7 +123,7 @@ app.post('/api/services', (req, res) => {
 });
 
 // [D] Delete service node
-app.delete('/api/services/:uid', (req, res) => {
+app.delete('/api/services/:uid', authMiddleware, (req, res) => {
     try {
         const uid = req.params.uid;
         const result = removeNode(uid);
@@ -103,7 +134,7 @@ app.delete('/api/services/:uid', (req, res) => {
 });
 
 // [C] Create dependency edge
-app.post('/api/dependencies', (req, res) => {
+app.post('/api/dependencies', authMiddleware, (req, res) => {
     try {
         const { source, target } = req.body;
         const edge = addEdge(source, target);
@@ -114,7 +145,7 @@ app.post('/api/dependencies', (req, res) => {
 });
 
 // [D] Delete dependency edge
-app.delete('/api/dependencies', (req, res) => {
+app.delete('/api/dependencies', authMiddleware, (req, res) => {
     try {
         const { source, target } = req.body;
         const result = removeEdge(source, target);
@@ -173,7 +204,7 @@ app.get('/api/services/:uid/detail', (req, res) => {
 });
 
 // [U] 更新服务信息
-app.put('/api/services/:uid', (req, res) => {
+app.put('/api/services/:uid', authMiddleware, (req, res) => {
     try {
         const uid = req.params.uid;
         const { name, properties } = req.body;
@@ -185,6 +216,6 @@ app.put('/api/services/:uid', (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`[ServiceGraph Backend] Topology API running on http://localhost:${PORT}`);
 });

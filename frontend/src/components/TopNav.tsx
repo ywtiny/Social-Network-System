@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function TopNav() {
     const navigate = useNavigate();
+    const { user, logout } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [results, setResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
@@ -101,17 +103,22 @@ export default function TopNav() {
                 )}
             </div>
 
-            {/* Notification & User Actions */}
-            <div className="flex items-center gap-4 ml-6">
-                <button className="relative p-2 text-stone-500 hover:text-stone-800 hover:bg-stone-100 rounded-full transition-colors group">
-                    <span className="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform">notifications</span>
-                    <span className="absolute top-1.5 right-1.5 size-2 bg-error rounded-full outline outline-2 outline-surface-light shrink-0 animate-pulse"></span>
-                </button>
-                <div className="w-px h-5 bg-border-light shrink-0"></div>
-                <button className="flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-stone-900 bg-white border border-border-light px-3 py-1.5 rounded-lg shadow-sm hover:shadow transition-all group">
-                    <span className="material-symbols-outlined text-[18px] text-primary group-hover:rotate-12 transition-transform">help</span>
-                    运维日志
-                </button>
+            {/* User Info & Logout */}
+            <div className="flex items-center gap-3 ml-6">
+                {user && (
+                    <>
+                        <div className="flex items-center gap-2 bg-white border border-border-light px-3 py-1.5 rounded-lg shadow-sm">
+                            <span className="material-symbols-outlined text-[18px] text-stone-400">account_circle</span>
+                            <span className="text-sm font-bold text-stone-700">{user.username}</span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${user.role === 'admin' ? 'bg-primary/10 text-primary' : 'bg-stone-100 text-stone-500'}`}>
+                                {user.role === 'admin' ? '管理员' : '观察者'}
+                            </span>
+                        </div>
+                        <button onClick={logout} className="p-2 text-stone-400 hover:text-danger hover:bg-red-50 rounded-lg transition-all" title="登出">
+                            <span className="material-symbols-outlined text-[20px]">logout</span>
+                        </button>
+                    </>
+                )}
             </div>
         </header>
     );
