@@ -1,0 +1,198 @@
+<html lang="en"><head></head><body class="bg-background-light dark:bg-background-dark font-sans antialiased text-text-light dark:text-text-dark h-screen w-full overflow-hidden flex transition-colors duration-300">```html
+
+
+
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ServiceGraph Portal Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#8f855d", // Muted olive green from screenshot
+                        primary_hover: "#7a714f",
+                        "background-light": "#f4f5f7",
+                        "background-dark": "#18181b",
+                        "card-light": "#ffffff",
+                        "card-dark": "#27272a",
+                        "text-light": "#1f2937",
+                        "text-dark": "#f3f4f6",
+                        "muted-light": "#6b7280",
+                        "muted-dark": "#9ca3af",
+                        "input-border-light": "#e5e7eb",
+                        "input-border-dark": "#3f3f46",
+                    },
+                    fontFamily: {
+                        sans: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                    },
+                },
+            },
+        };
+    </script>
+<style>
+        .topology-bg {
+            background-image: radial-gradient(#8f855d 1px, transparent 1px);
+            background-size: 30px 30px;
+            opacity: 0.15;
+        }
+        .network-node {
+            position: absolute;
+            background-color: #8f855d;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(143, 133, 93, 0.4);
+        }
+        .network-line {
+            position: absolute;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(143,133,93,0) 0%, rgba(143,133,93,0.3) 50%, rgba(143,133,93,0) 100%);
+            transform-origin: left center;
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .floating-element {
+            animation: float 6s ease-in-out infinite;
+        }
+    </style>
+
+
+<div class="hidden lg:flex w-1/2 relative flex-col justify-between p-12 bg-white dark:bg-zinc-900 border-r border-gray-200 dark:border-zinc-800">
+<div class="absolute inset-0 overflow-hidden pointer-events-none">
+<div class="topology-bg absolute inset-0 dark:opacity-5"></div>
+<div class="absolute inset-0 flex items-center justify-center opacity-40 dark:opacity-20">
+<div class="relative w-[600px] h-[600px] floating-element">
+<div class="network-node w-4 h-4 left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
+<div class="network-node w-3 h-3 left-1/4 top-1/3"></div>
+<div class="network-node w-3 h-3 right-1/4 top-1/4"></div>
+<div class="network-node w-2 h-2 left-1/3 bottom-1/4"></div>
+<div class="network-node w-2 h-2 right-1/3 bottom-1/3"></div>
+<div class="network-node w-3 h-3 left-[10%] top-1/2"></div>
+<div class="network-node w-2 h-2 right-[10%] top-[60%]"></div>
+<div class="absolute top-1/2 left-1/4 w-1/4 h-[1px] bg-primary/20 rotate-12 transform-origin-right"></div>
+<div class="absolute top-1/4 right-1/4 w-1/4 h-[1px] bg-primary/20 rotate-45 transform-origin-left"></div>
+<div class="absolute bottom-1/4 left-1/3 w-1/3 h-[1px] bg-primary/20 -rotate-45"></div>
+<div class="absolute bottom-1/3 right-1/3 w-1/4 h-[1px] bg-primary/20 rotate-[120deg]"></div>
+<div class="absolute top-1/2 left-[10%] w-[40%] h-[1px] bg-primary/10"></div>
+</div>
+</div>
+</div>
+<div class="relative z-10">
+<div class="flex items-center gap-3 mb-2">
+<div class="bg-primary text-white p-2 rounded-lg shadow-md">
+<span class="material-icons-round text-2xl">hub</span>
+</div>
+<span class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">ServiceGraph</span>
+</div>
+<p class="text-muted-light dark:text-muted-dark mt-4 max-w-md text-lg leading-relaxed">
+                Visualize your microservices architecture in real-time. Detect anomalies, trace dependencies, and optimize performance with our advanced topology engine.
+            </p>
+</div>
+<div class="relative z-10 mt-auto">
+<div class="flex items-center gap-4 text-sm font-medium text-muted-light dark:text-muted-dark">
+<div class="flex -space-x-2">
+<img alt="User Avatar 1" class="inline-block h-8 w-8 rounded-full ring-2 ring-white dark:ring-zinc-900" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCggUEDXWJykcFMDgrN5zPGfakBkRFlnIjY009GuTQbUSloPYzqdLgqn3rR4N6EeqeYcu6kY6ff9YW7og7A46sJzdVEDED0FPvVqKzdyHMU70eRQA0Q8DlbwyyQk-gv1z3CFwU6yiUepYeB002zH4EwE006K-s5QRWlu3Vz13v4TAJ3IGEaWXsVLdDUd41Jxb8HZIeZ1ix5KgfaSZ5Df3Wqhdmt98-z8EAncmkjuwCOVE2o7DFIfy7DjEQUNlO669z2TAKM6_kKSO0y"/>
+<img alt="User Avatar 2" class="inline-block h-8 w-8 rounded-full ring-2 ring-white dark:ring-zinc-900" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPNLv6rkYebdSc18PnE-MG49pDHz8Bsx0zP6iOPrutM0ZrxFjj9H6O4iHQwf48NCFsLRucjdi5khb03gO14trjIwFoGo2Zpm543kP3k4xB7xcKIYOj91tuyfadjGsu15SEt0Xh-k2SeJ1z0WDrb1jOPPnxdMwDacE1yd8NxsAl_-uRHrAg5RthWzn1itpgxG9flU7NDnCFt5YWSpOtXp7VIjNB8dNqToQkmW2JaMAZmKWsjTg6LmOWRa8YWeNt9I6rRm4cI9BXg0vM"/>
+<img alt="User Avatar 3" class="inline-block h-8 w-8 rounded-full ring-2 ring-white dark:ring-zinc-900" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGKkh7dD0-ZwAOkq1FdjZp7XPx5w6V3epH105I9lOQ4cFH1TdlRjgI-Zg1fNM9b6BM4_wAkn-MUfFNpducq3v10xxmWespuZwHXm06C6YpRI9dz9Egp1ZNjNTRfiQDzo11S9etaJWllh6mC3f6CO4fbOvcNd4M3jlAcdiCY5rtCXYideBXjP2MNG_EL31SHjQB5hnKAw4e8Op9Wxg2eJzl13NRPA6LWjBZ_HrBTGuBY31bDSw_QVhr6Agg3CjMeWTsRZdqvo1bQ3IW"/>
+</div>
+<span>Trusted by 500+ Engineering Teams</span>
+</div>
+</div>
+</div>
+<div class="w-full lg:w-1/2 flex items-center justify-center p-6 bg-background-light dark:bg-background-dark relative">
+<button class="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors text-muted-light dark:text-muted-dark" onclick="document.documentElement.classList.toggle('dark')">
+<span class="material-icons-round dark:hidden">dark_mode</span>
+<span class="material-icons-round hidden dark:inline">light_mode</span>
+</button>
+<div class="w-full max-w-md bg-card-light dark:bg-card-dark rounded-2xl shadow-xl border border-gray-100 dark:border-zinc-800 p-8 md:p-10">
+<div class="lg:hidden flex justify-center mb-8">
+<div class="flex items-center gap-2">
+<div class="bg-primary text-white p-1.5 rounded shadow-sm">
+<span class="material-icons-round text-xl">hub</span>
+</div>
+<span class="text-xl font-bold text-gray-900 dark:text-white">ServiceGraph</span>
+</div>
+</div>
+<div class="text-center mb-8">
+<h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome Back</h1>
+<p class="text-muted-light dark:text-muted-dark text-sm">Please sign in to access your dashboard.</p>
+</div>
+<form action="#" class="space-y-6" method="POST">
+<div>
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1" for="username">Username or Email</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-light dark:text-muted-dark">
+<span class="material-icons-round text-lg">person_outline</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-2.5 border border-input-border-light dark:border-input-border-dark rounded-lg bg-gray-50 dark:bg-zinc-800/50 text-gray-900 dark:text-white placeholder-muted-light focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm transition-shadow shadow-sm" id="username" name="username" placeholder="admin@servicegraph.io" required="" type="text"/>
+</div>
+</div>
+<div>
+<div class="flex items-center justify-between mb-1">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="password">Password</label>
+<a class="text-sm font-medium text-primary hover:text-primary_hover transition-colors" href="#">Forgot password?</a>
+</div>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-light dark:text-muted-dark">
+<span class="material-icons-round text-lg">lock_outline</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-2.5 border border-input-border-light dark:border-input-border-dark rounded-lg bg-gray-50 dark:bg-zinc-800/50 text-gray-900 dark:text-white placeholder-muted-light focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm transition-shadow shadow-sm" id="password" name="password" placeholder="••••••••" required="" type="password"/>
+</div>
+</div>
+<div class="flex items-center">
+<input class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded dark:border-zinc-600 dark:bg-zinc-800" id="remember-me" name="remember-me" type="checkbox"/>
+<label class="ml-2 block text-sm text-gray-700 dark:text-gray-300" for="remember-me">
+                        Remember me for 30 days
+                    </label>
+</div>
+<button class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary_hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all transform active:scale-[0.98]" type="submit">
+                    Sign in to Portal
+                </button>
+</form>
+<div class="mt-6">
+<div class="relative">
+<div class="absolute inset-0 flex items-center">
+<div class="w-full border-t border-gray-200 dark:border-zinc-700"></div>
+</div>
+<div class="relative flex justify-center text-sm">
+<span class="px-2 bg-card-light dark:bg-card-dark text-muted-light dark:text-muted-dark">
+                            Or continue with
+                        </span>
+</div>
+</div>
+<div class="mt-6 grid grid-cols-2 gap-3">
+<a class="w-full inline-flex justify-center py-2.5 px-4 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-sm bg-white dark:bg-zinc-800 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors" href="#">
+<span class="sr-only">Sign in with Google</span>
+<svg aria-hidden="true" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+<path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"></path>
+</svg>
+<span class="ml-2">Google</span>
+</a>
+<a class="w-full inline-flex justify-center py-2.5 px-4 border border-gray-200 dark:border-zinc-700 rounded-lg shadow-sm bg-white dark:bg-zinc-800 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors" href="#">
+<span class="sr-only">Sign in with GitHub</span>
+<svg aria-hidden="true" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+<path clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" fill-rule="evenodd"></path>
+</svg>
+<span class="ml-2">GitHub</span>
+</a>
+</div>
+</div>
+<p class="mt-8 text-center text-xs text-muted-light dark:text-muted-dark">
+                Don't have an account? <a class="font-medium text-primary hover:text-primary_hover transition-colors" href="#">Contact Support</a>
+</p>
+</div>
+<div class="absolute bottom-6 w-full text-center">
+<p class="text-xs text-muted-light/60 dark:text-muted-dark/40">© 2024 ServiceGraph Inc. All rights reserved.</p>
+</div>
+</div>
+
+```</body></html>
